@@ -26,6 +26,7 @@ export default function P5Canvas({ wsUrl }) {
 
   let organisms = []
   let pulses = []
+  let selected = null
   let touches = []
 
         socketRef.current = io(wsUrl)
@@ -89,6 +90,13 @@ export default function P5Canvas({ wsUrl }) {
           const api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
           const wx = (s.mouseX / s.width) * 2000
           const wy = (s.mouseY / s.height) * 2000
+          // select organism if near
+          const nearest = organisms.reduce((best, o) => {
+            const d = Math.hypot(o.position.x - wx, o.position.y - wy)
+            if (!best || d < best.d) return { o, d }
+            return best
+          }, null)
+          if (nearest && nearest.d < (nearest.o.size || 1) * 20) selected = nearest.o
           fetch(`${api}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: wx, y: wy }) })
             .then(r => r.json()).then(d => console.log('touch', d)).catch(e=>console.error(e))
         }
@@ -161,6 +169,18 @@ export default function P5Canvas({ wsUrl }) {
             s.ellipse(t.x, t.y, 200 * (1 - age / life), 200 * (1 - age / life))
           }
         }
+          // selected panel
+          if (selected) {
+            s.push()
+            s.fill(20, 30, 40, 220)
+            s.rect(18, s.height - 120, 260, 100, 8)
+            s.fill(255)
+            s.textSize(13)
+            s.text(`id: ${selected.id}`, 26, s.height - 96)
+            s.text(`size: ${selected.size.toFixed(2)} energy: ${selected.energy.toFixed(2)}`, 26, s.height - 76)
+            s.text(`traits: cohesion ${selected.traits?.cohesion?.toFixed(2) || '-'} escape ${selected.traits?.escape?.toFixed(2) || '-'}`, 26, s.height - 56)
+            s.pop()
+          }
         // add mouse click handler to send touch event → also send to server
         s.mousePressed = () => {
           if (!socketRef.current) return
