@@ -97,66 +97,52 @@ app.post('/spawn', async (req, res) => {
   console.log('POST /spawn ip', ip, 'DB?', !!dbPool)
   const today = new Date().toISOString().slice(0,10)
   try {
-    console.log('spawn branch start for', ip)
-      if (dbPool) {
-        // try to increment atomically
-        const sql = `INSERT INTO spawn_counts (ip, day, count) VALUES ($1, $2, 1)
-          ON CONFLICT (ip, day) DO UPDATE SET count = spawn_counts.count + 1
-          RETURNING count`;
-        try {
-          const result = await dbPool.query(sql, [ip, today])
-          if (result && result.rows && result.rows[0] && result.rows[0].count > 1) {
-            return res.status(429).json({ error: 'spawn limit reached for today (db)' })
-          }
-        } catch (dbErr) {
-          // fallback to in-memory if DB not available or schema missing
-          console.error('db spawn count upsert err, falling back to in-memory', dbErr)
-          spawnCounts[ip] = spawnCounts[ip] || {}
-          spawnCounts[ip][today] = spawnCounts[ip][today] || 0
-          if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
-          spawnCounts[ip][today] += 1
+    // Try DB-backed daily spawn counter first (atomic upsert)
+    if (dbPool) {
+      const sql = `INSERT INTO spawn_counts (ip, day, count) VALUES ($1, $2, 1)
+        ON CONFLICT (ip, day) DO UPDATE SET count = spawn_counts.count + 1
+        RETURNING count`;
+      try {
+        const result = await dbPool.query(sql, [ip, today])
+        if (result && result.rows && result.rows[0] && result.rows[0].count > 1) {
+          return res.status(429).json({ error: 'spawn limit reached for today (db)' })
         }
-      } else {
-        // fallback to in-memory
+      } catch (dbErr) {
+        // Database may not be available in test env; fallback to in-memory
+        console.warn('db spawn upsert failed; using in-memory fallback', dbErr && dbErr.message)
         spawnCounts[ip] = spawnCounts[ip] || {}
         spawnCounts[ip][today] = spawnCounts[ip][today] || 0
         if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
         spawnCounts[ip][today] += 1
-  console.log('spawnCounts updated', ip, spawnCounts[ip])
       }
-  console.log('spawn allowed, calling spawn logic')
+    } else {
+      // No DB: use in-memory per-ip/day counter (reset on restart)
+      spawnCounts[ip] = spawnCounts[ip] || {}
+      spawnCounts[ip][today] = spawnCounts[ip][today] || 0
+      if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
+      spawnCounts[ip][today] += 1
+    }
 
-  const seedTraits = req.body.seedTraits || null
-  if (USE_RUST) {
-        const resp = await fetch(`${RUST_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seedTraits }) })
-        const parsed = await resp.json()
-        const newOrg = parsed.organism || parsed
-        io.emit('spawn', { organism: newOrg })
-        return res.status(201).json({ organism: newOrg })
-      } else {
-        const newOrg = createOrganism(seedTraits)
-        organisms.push(newOrg)
-        if (dbPool) {
-          try { await dbPool.query('INSERT INTO organisms (id, data, created_at, updated_at) VALUES ($1,$2,now(),now())', [newOrg.id, JSON.stringify(newOrg)]) } catch(err) { console.error('db spawn err',err) }
-        }
-        io.emit('spawn', { organism: newOrg })
-        return res.status(201).json({ organism: newOrg })
-      }
-    // removed duplicate block
+    // Make or proxy a spawn
+    const seedTraits = req.body && req.body.seedTraits ? req.body.seedTraits : null
+    if (USE_RUST) {
       const resp = await fetch(`${RUST_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seedTraits }) })
       const parsed = await resp.json()
       const newOrg = parsed.organism || parsed
       io.emit('spawn', { organism: newOrg })
       return res.status(201).json({ organism: newOrg })
-    } else {
-      const newOrg = createOrganism(seedTraits)
-      organisms.push(newOrg)
-      if (dbPool) {
-        try { await dbPool.query('INSERT INTO organisms (id, data, created_at, updated_at) VALUES ($1,$2,now(),now())', [newOrg.id, JSON.stringify(newOrg)]) } catch(err) { console.error('db spawn err',err) }
-      }
-      io.emit('spawn', { organism: newOrg })
-      return res.status(201).json({ organism: newOrg })
-  }
+    }
+
+    // Local spawn (Node simulation)
+    const newOrg = createOrganism(seedTraits)
+    organisms.push(newOrg)
+    if (dbPool) {
+      try {
+        await dbPool.query('INSERT INTO organisms (id, data, created_at, updated_at) VALUES ($1,$2,now(),now())', [newOrg.id, JSON.stringify(newOrg)])
+      } catch (err) { console.warn('db spawn insert failed', err && err.message) }
+    }
+    io.emit('spawn', { organism: newOrg })
+    return res.status(201).json({ organism: newOrg })
   } catch (err) {
     console.error('spawn proxy error', err)
     return res.status(500).json({ error: 'backend spawn failed' })
