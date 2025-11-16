@@ -9,9 +9,11 @@ describe('API endpoints', () => {
   })
 
   test('POST /spawn limited to 1 per day', async () => {
-    const res1 = await request(app).post('/spawn').send({})
+    // set a deterministic IP via X-Forwarded-For header so test behaves consistently
+    const headers = { 'X-Forwarded-For': '127.0.0.1' }
+    const res1 = await request(app).post('/spawn').set(headers).send({})
     expect([200,201]).toContain(res1.statusCode)
-    const res2 = await request(app).post('/spawn').send({})
+    const res2 = await request(app).post('/spawn').set(headers).send({})
     // rate-limit ensures second spawn returns 429
     expect([429,201]).toContain(res2.statusCode)
   })
