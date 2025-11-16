@@ -184,7 +184,9 @@ setInterval(async () => {
       const parsed = await resp.json()
       const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
       organisms = (parsed.organisms || []).map(o => ({ ...o }))
-      io.emit('tick', { tick, updates })
+  // include maps if available
+  const maps = parsed.maps || parsed.worldMaps || null
+  io.emit('tick', { tick, updates, maps })
   } else {
       // run local simulation steps
       for (let i = 0; i < 4; i++) {

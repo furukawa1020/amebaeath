@@ -98,6 +98,34 @@ async fn main() -> std::io::Result<()> {
                 org.position.x = (org.position.x + (rand::random::<f64>() - 0.5) * 2.0) % 2000.0;
                 org.position.y = (org.position.y + (rand::random::<f64>() - 0.5) * 2.0) % 2000.0;
             }
+            // decay temperature and clear density
+            for gy in 0..200 {
+                for gx in 0..200 {
+                    world.maps.temperatureMap[gy][gx] = (world.maps.temperatureMap[gy][gx] - 0.01).max(0.0);
+                    world.maps.densityMap[gy][gx] = 0;
+                }
+            }
+            // apply touches
+            while let Some(t) = world.touch_events.pop() {
+                let sigma = t.sigma.unwrap_or(30.0);
+                for gy in 0..200 {
+                    for gx in 0..200 {
+                        let cx = gx as f64 * 10.0 + 5.0;
+                        let cy = gy as f64 * 10.0 + 5.0;
+                        let dx = cx - t.x;
+                        let dy = cy - t.y;
+                        let dist2 = dx*dx + dy*dy;
+                        let influence = (t.amplitude.unwrap_or(0.6)) * (-dist2/(2.0*sigma*sigma)).exp();
+                        world.maps.temperatureMap[gy][gx] += influence * 0.5;
+                    }
+                }
+            }
+            // update density
+            for org in &world.organisms {
+                let gx = (org.position.x / 10.0).floor() as usize;
+                let gy = (org.position.y / 10.0).floor() as usize;
+                if gx < 200 && gy < 200 { world.maps.densityMap[gy][gx] += 1; }
+            }
         }
     });
 
