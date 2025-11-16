@@ -98,18 +98,24 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
     }
     // apply touches as gaussian distributed heat
     for (const t of touchEvents) {
-      for (let gy = 0; gy < GRID_RESOLUTION; gy++) {
-        for (let gx = 0; gx < GRID_RESOLUTION; gx++) {
+      const sigma = t.sigma || 30
+      const radius = sigma * 3
+      const minGX = Math.max(0, Math.floor((t.x - radius) / CELL_SIZE))
+      const maxGX = Math.min(GRID_RESOLUTION-1, Math.floor((t.x + radius) / CELL_SIZE))
+      const minGY = Math.max(0, Math.floor((t.y - radius) / CELL_SIZE))
+      const maxGY = Math.min(GRID_RESOLUTION-1, Math.floor((t.y + radius) / CELL_SIZE))
+      for (let gy = minGY; gy <= maxGY; gy++) {
+        for (let gx = minGX; gx <= maxGX; gx++) {
           const cx = gx * CELL_SIZE + CELL_SIZE / 2
           const cy = gy * CELL_SIZE + CELL_SIZE / 2
           const dx = cx - t.x
           const dy = cy - t.y
           const dist2 = dx*dx + dy*dy
-            const sigma = t.sigma || 30
-            const influence = (t.amplitude || 0.6) * Math.exp(-dist2/(2*sigma*sigma))
-            worldMaps.temperatureMap[gy][gx] += influence * dt
-            // add a small amount of food growth around a touch - e.g., nutrient influx
-            worldMaps.foodMap[gy][gx] = Math.min(1.0, worldMaps.foodMap[gy][gx] + influence * dt * 0.2)
+          const influence = (t.amplitude || 0.6) * Math.exp(-dist2/(2*sigma*sigma))
+          if (influence <= 1e-6) continue
+          worldMaps.temperatureMap[gy][gx] += influence * dt
+          // add a small amount of food growth around a touch - e.g., nutrient influx
+          worldMaps.foodMap[gy][gx] = Math.min(1.0, worldMaps.foodMap[gy][gx] + influence * dt * 0.2)
         }
       }
     }
