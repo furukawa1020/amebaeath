@@ -248,7 +248,26 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
   // use quadtree for larger numbers to reduce overhead
   if (list.length > 128) {
     const q = buildQuadtree(list, worldSize)
-    return { query: (pos, radius) => q.query(pos, radius) }
+    return {
+      query: (pos, radius) => {
+        // handle wrap around by querying mirrored positions when near edges
+        const candidates = []
+        const toQuery = [pos]
+        if (pos.x - radius < 0) toQuery.push({ x: pos.x + worldSize, y: pos.y })
+        if (pos.x + radius > worldSize) toQuery.push({ x: pos.x - worldSize, y: pos.y })
+        if (pos.y - radius < 0) toQuery.push({ x: pos.x, y: pos.y + worldSize })
+        if (pos.y + radius > worldSize) toQuery.push({ x: pos.x, y: pos.y - worldSize })
+        // also corners
+        if (pos.x - radius < 0 && pos.y - radius < 0) toQuery.push({ x: pos.x + worldSize, y: pos.y + worldSize })
+        if (pos.x + radius > worldSize && pos.y + radius > worldSize) toQuery.push({ x: pos.x - worldSize, y: pos.y - worldSize })
+        const found = new Map()
+        for (const p of toQuery) {
+          const res = q.query(p, radius)
+          for (const o of res) found.set(o.id, o)
+        }
+        return Array.from(found.values())
+      }
+    }
   }
 
   // grid-based index
@@ -264,27 +283,60 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
 
   return {
     query: (pos, radius) => {
-      const minX = Math.floor((pos.x - radius) / cellSize)
-      const maxX = Math.floor((pos.x + radius) / cellSize)
-      const minY = Math.floor((pos.y - radius) / cellSize)
-      const maxY = Math.floor((pos.y + radius) / cellSize)
+      // handle wrap-around positions similarly to quadtree
+      const toQuery = [pos]
+      if (pos.x - radius < 0) toQuery.push({ x: pos.x + worldSize, y: pos.y })
+      if (pos.x + radius > worldSize) toQuery.push({ x: pos.x - worldSize, y: pos.y })
+      if (pos.y - radius < 0) toQuery.push({ x: pos.x, y: pos.y + worldSize })
+      if (pos.y + radius > worldSize) toQuery.push({ x: pos.x, y: pos.y - worldSize })
+      if (pos.x - radius < 0 && pos.y - radius < 0) toQuery.push({ x: pos.x + worldSize, y: pos.y + worldSize })
+      if (pos.x + radius > worldSize && pos.y + radius > worldSize) toQuery.push({ x: pos.x - worldSize, y: pos.y - worldSize })
       const results = []
       const seen = new Set()
-      for (let gx = minX; gx <= maxX; gx++) {
-        for (let gy = minY; gy <= maxY; gy++) {
+      for (const qpos of toQuery) {
+    // We will query mirrored positions; compute ranges per mirrored origin
+    const results = []
+    const seen = new Set()
+      // iterate over mirrored positions
+      for (const qpos of toQuery) {
+        const minX = Math.floor((qpos.x - radius) / cellSize)
+        const maxX = Math.floor((qpos.x + radius) / cellSize)
+        const minY = Math.floor((qpos.y - radius) / cellSize)
+        const maxY = Math.floor((qpos.y + radius) / cellSize)
+        for (let gx = minX; gx <= maxX; gx++) {
+          for (let gy = minY; gy <= maxY; gy++) {
+            const key = gx + ':' + gy
+            const bucket = grid.get(key)
+            if (!bucket) continue
+            for (const obj of bucket) {
+              if (seen.has(obj.id)) continue
+              const dx = obj.position.x - qpos.x
+              const dy = obj.position.y - qpos.y
+              if (dx*dx + dy*dy <= radius*radius) {
+                results.push(obj)
+                seen.add(obj.id)
+              }
+            }
+          }
+        }
+      }
+      const maxY = Math.floor((pos.y + radius) / cellSize)
+        for (let gx = minX; gx <= maxX; gx++) {
+          for (let gy = minY; gy <= maxY; gy++) {
           const key = gx + ':' + gy
           const bucket = grid.get(key)
           if (!bucket) continue
           for (const obj of bucket) {
             if (seen.has(obj.id)) continue
-            const dx = obj.position.x - pos.x
-            const dy = obj.position.y - pos.y
+            const dx = obj.position.x - qpos.x
+            const dy = obj.position.y - qpos.y
             if (dx*dx + dy*dy <= radius*radius) {
               results.push(obj)
               seen.add(obj.id)
             }
           }
         }
+      }
       }
       return results
     }
@@ -313,4 +365,4 @@ function tryEvolution(org, events) {
   events.push({ type: 'evolve', id: org.id, traits: org.traits })
 }
 
-module.exports = { updateOrganism, simulateWorldStep }
+module.exports = { updateOrganism, simulateWorldStep, buildSpatialHash, QuadtreeNode, WORLD_SIZE }
