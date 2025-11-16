@@ -137,13 +137,25 @@ io.on('connection', (socket) => {
 setInterval(async () => {
   tick += 1
   try {
-    const resp = await fetch(`${RUST_URL}/state`)
-    const parsed = await resp.json()
-    const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
-    organisms = (parsed.organisms || []).map(o => ({ ...o }))
-    io.emit('tick', { tick, updates })
+    if (USE_RUST) {
+      const resp = await fetch(`${RUST_URL}/state`)
+      const parsed = await resp.json()
+      const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
+      organisms = (parsed.organisms || []).map(o => ({ ...o }))
+      io.emit('tick', { tick, updates })
+    } else {
+      // run local simulation steps
+      for (let i = 0; i < 4; i++) {
+        const res = simulateWorldStep(organisms, TOUCH_EVENTS, 0.25, contactMap)
+        if (res && res.events && res.events.length) {
+          res.events.forEach(e => io.emit(e.type, e))
+        }
+      }
+      const updates = organisms.map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
+      io.emit('tick', { tick, updates })
+    }
   } catch (e) {
-    console.error('error fetching state from rust backend', e && e.stack ? e.stack : e.toString())
+    console.error('tick loop error', e && e.stack ? e.stack : e.toString())
   }
 }, 1000)
 
