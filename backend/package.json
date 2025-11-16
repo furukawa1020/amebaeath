@@ -8,7 +8,8 @@
     "start:rust": "cd rust && cargo run",
     "start:all": "concurrently \"npm:run start:rust\" \"npm start\"",
     "test": "jest"
-  ,"bench":"node bench/quadtree-bench.js"
+    "bench":"node bench/quadtree-bench.js",
+    "autotune":"node bench/auto-tune.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
