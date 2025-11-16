@@ -346,9 +346,9 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
       }
       // cleaned up mirrored query; results are already accumulated
       return results
-    }
+    },
+    _isQuadtree: false
   }
-  , _isQuadtree: false
 }
 
 // Always build a pure grid index (for benchmarking/comparison)
