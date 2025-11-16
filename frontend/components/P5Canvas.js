@@ -23,11 +23,18 @@ export default function P5Canvas({ wsUrl }) {
           s.resizeCanvas(window.innerWidth, window.innerHeight)
         }
 
-        let organisms = []
+  let organisms = []
+  let touches = []
 
         socketRef.current = io(wsUrl)
         socketRef.current.on('init', (data) => {
           organisms = data.organisms || []
+        })
+        socketRef.current.on('touch', (data) => {
+          // touch data: {x,y,amplitude,sigma}
+          const worldX = (data.x / 2000) * s.width
+          const worldY = (data.y / 2000) * s.height
+          touches.push({ x: worldX, y: worldY, amplitude: data.amplitude || 0.6, createdAt: Date.now() })
         })
         socketRef.current.on('spawn', (data) => {
           organisms.push(data.organism)
@@ -46,7 +53,7 @@ export default function P5Canvas({ wsUrl }) {
           })
         })
 
-  s.draw = () => {
+        s.draw = () => {
           s.background(12, 18, 24)
           // draw organisms
           for (const o of organisms) {
@@ -71,6 +78,18 @@ export default function P5Canvas({ wsUrl }) {
             // simple eye
             s.fill(10)
             s.ellipse(sx + 4, sy - 4, 3, 3)
+          }
+
+          // draw touches as heat pulses
+          const now = Date.now()
+          for (let i = touches.length-1; i >= 0; i--) {
+            const t = touches[i]
+            const age = (now - t.createdAt) / 1000
+            const life = 3.0
+            if (age > life) { touches.splice(i,1); continue }
+            const alpha = 200 * (1 - age / life) * t.amplitude
+            s.fill(255, 60, 30, alpha)
+            s.ellipse(t.x, t.y, 200 * (1 - age / life), 200 * (1 - age / life))
           }
         }
         // add mouse click handler to send touch event → also send to server
