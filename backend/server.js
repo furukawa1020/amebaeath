@@ -27,6 +27,10 @@ let contactMap = {}
 
 const RUST_URL = process.env.RUST_URL || 'http://localhost:4001'
 const USE_RUST = process.env.USE_RUST === 'true'
+const { Pool } = require('pg')
+const DATABASE_URL = process.env.DATABASE_URL
+let dbPool = null
+if (DATABASE_URL) dbPool = new Pool({ connectionString: DATABASE_URL })
 
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
 const spawnCounts = {}
@@ -179,6 +183,16 @@ setInterval(async () => {
     console.error('tick loop error', e && e.stack ? e.stack : e.toString())
   }
 }, 1000)
+
+// persist to DB every minute
+setInterval(async () => {
+  if (!dbPool) return
+  try {
+    await dbPool.query('INSERT INTO world_state (tick, temperature_map, food_map, density_map, last_tick_at) VALUES ($1,$2,$3,$4,NOW())', [tick, JSON.stringify({}), JSON.stringify({}), JSON.stringify({})])
+  } catch (e) {
+    console.error('persist error', e)
+  }
+}, 60 * 1000)
 
 const PORT = process.env.PORT || 3001
 server.listen(PORT, () => {
