@@ -15,6 +15,10 @@ const GRID_RESOLUTION = 200
 const CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
 const TEMPERATURE_DECAY = 0.01 // per step
 const FOOD_DECAY = 0.001
+const FOOD_CONSUMPTION_RATE = 0.02 // how much food removed per second when feeding
+const FOOD_ENERGY_GAIN = 0.06
+const MIN_SURVIVAL_ENERGY = 0.02
+const MIN_SIZE = 0.15
 
 function updateOrganism(org, dt, world) {
   // Energy decay
@@ -125,6 +129,13 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
         const gy = Math.floor(org.position.y / CELL_SIZE)
         if (gy >= 0 && gy < GRID_RESOLUTION && gx >= 0 && gx < GRID_RESOLUTION) {
           worldMaps.densityMap[gy][gx] += 1
+          // animal consumes food from map if available
+          const avail = worldMaps.foodMap[gy][gx]
+          if (avail > 0) {
+            const eaten = Math.min(avail, FOOD_CONSUMPTION_RATE * dt)
+            worldMaps.foodMap[gy][gx] = Math.max(0, avail - eaten)
+            org.energy = Math.min(1, org.energy + eaten * FOOD_ENERGY_GAIN)
+          }
         }
       }
   })
@@ -173,6 +184,16 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
     for (const id of removedIds) {
       const idx = organisms.findIndex(o => o.id === id)
       if (idx >= 0) organisms.splice(idx, 1)
+    }
+  }
+
+  // expire organisms with no energy or below minimum size
+  for (let i = organisms.length - 1; i >= 0; i--) {
+    const o = organisms[i]
+    if (o.energy <= MIN_SURVIVAL_ENERGY || o.size < MIN_SIZE) {
+      removedIds.add(o.id)
+      events.push({ type: 'expired', id: o.id })
+      organisms.splice(i, 1)
     }
   }
 

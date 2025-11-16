@@ -86,4 +86,24 @@ describe('World simulation', () => {
     const gy = Math.floor(touch.y / (2000/200))
     expect(worldMaps.temperatureMap[gy][gx]).toBeGreaterThan(0)
   })
+
+  test('organisms consume food and may expire', () => {
+    const org = { id: 'o', position: { x: 100, y: 100 }, velocity: { vx: 0, vy: 0 }, size: 0.6, metaballs: [], traits: {}, dna_layers: ['#fff'], energy: 0.2, state: 'normal', spawnedAt: Date.now(), lastUpdated: Date.now() }
+    const worldMaps = {
+      temperatureMap: Array.from({length: 200}, () => Array(200).fill(0)),
+      foodMap: Array.from({length: 200}, () => Array(200).fill(0)),
+      densityMap: Array.from({length: 200}, () => Array(200).fill(0))
+    }
+    const gx = Math.floor(org.position.x / (2000/200))
+    const gy = Math.floor(org.position.y / (2000/200))
+    worldMaps.foodMap[gy][gx] = 1.0
+    const res = simulateWorldStep([org], [], 1.0, {}, worldMaps)
+    // ensure food was eaten and energy rose
+    expect(worldMaps.foodMap[gy][gx]).toBeLessThan(1.0)
+    expect(org.energy).toBeGreaterThan(0.2)
+    // now deplete energy and force expire
+    org.energy = 0.01
+    const res2 = simulateWorldStep([org], [], 1.0, {}, worldMaps)
+    expect(res2.events.some(e => e.type === 'expired')).toBeTruthy()
+  })
 })
