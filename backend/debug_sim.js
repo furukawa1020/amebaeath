@@ -11,5 +11,7 @@ worldMaps.foodMap[gy][gx] = 1.0
 console.log('before energy', org.energy)
 const res = simulateWorldStep([org], [], 1.0, {}, worldMaps)
 console.log('after energy', org.energy)
+console.log('position', org.position) // Log position to ensure it is in the expected cell
 console.log('food', worldMaps.foodMap[gy][gx])
+console.log('density', worldMaps.densityMap[gy][gx])
 console.log('events', res.events)

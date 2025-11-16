@@ -94,10 +94,12 @@ app.post('/config/quadtree', (req, res) => {
 // REST: POST /spawn
 app.post('/spawn', (req, res) => {
   const ip = (req.headers['x-forwarded-for'] || req.ip || 'unknown')
+  console.log('POST /spawn ip', ip, 'DB?', !!dbPool)
   const today = new Date().toISOString().slice(0,10)
   // server-side persistent rate-limit (when db present)
   (async () => {
     try {
+      console.log('spawn branch start for', ip)
       if (dbPool) {
         // try to increment atomically
         const sql = `INSERT INTO spawn_counts (ip, day, count) VALUES ($1, $2, 1)
@@ -122,7 +124,9 @@ app.post('/spawn', (req, res) => {
         spawnCounts[ip][today] = spawnCounts[ip][today] || 0
         if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
         spawnCounts[ip][today] += 1
+  console.log('spawnCounts updated', ip, spawnCounts[ip])
       }
+  console.log('spawn allowed, calling spawn logic')
 
       const seedTraits = req.body.seedTraits || null
       if (USE_RUST) {

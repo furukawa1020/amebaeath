@@ -94,10 +94,10 @@ describe('World simulation', () => {
       foodMap: Array.from({length: 200}, () => Array(200).fill(0)),
       densityMap: Array.from({length: 200}, () => Array(200).fill(0))
     }
-    const gx = Math.floor(org.position.x / (2000/200))
-    const gy = Math.floor(org.position.y / (2000/200))
-    worldMaps.foodMap[gy][gx] = 1.0
-    const res = simulateWorldStep([org], [], 1.0, {}, worldMaps)
+  worldMaps.foodMap[Math.floor(org.position.y / (2000/200))][Math.floor(org.position.x / (2000/200))] = 1.0
+  const res = simulateWorldStep([org], [], 1.0, {}, worldMaps)
+  const gx = Math.floor(org.position.x / (2000/200))
+  const gy = Math.floor(org.position.y / (2000/200))
     // ensure food was eaten and energy rose
     expect(worldMaps.foodMap[gy][gx]).toBeLessThan(1.0)
     expect(org.energy).toBeGreaterThan(0.2)
