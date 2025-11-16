@@ -441,4 +441,4 @@ function tryEvolution(org, events) {
   events.push({ type: 'evolve', id: org.id, traits: org.traits })
 }
 
-module.exports = { updateOrganism, simulateWorldStep, buildSpatialHash, buildGridIndex, QuadtreeNode, WORLD_SIZE, QUADTREE_THRESHOLD, QUADTREE_MAX_OBJECTS, QUADTREE_MAX_LEVEL }
+module.exports = { updateOrganism, simulateWorldStep, buildSpatialHash, buildGridIndex, QuadtreeNode, WORLD_SIZE, QUADTREE_THRESHOLD, QUADTREE_MAX_OBJECTS, QUADTREE_MAX_LEVEL, saveQuadtreeConfig, reloadQuadtreeConfig }

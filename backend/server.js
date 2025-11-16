@@ -43,6 +43,7 @@ const { Pool } = require('pg')
 const DATABASE_URL = process.env.DATABASE_URL
 let dbPool = null
 if (DATABASE_URL) dbPool = new Pool({ connectionString: DATABASE_URL })
+const { saveQuadtreeConfig, reloadQuadtreeConfig } = require('./world')
 
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
 const spawnCounts = {}
@@ -69,6 +70,25 @@ app.get('/stats', (req, res) => {
   const avgSize = total ? organisms.reduce((s,o) => s + (o.size||0), 0) / total : 0
   const largest = organisms.slice().sort((a,b)=>b.size-a.size).slice(0,5).map(o => ({ id: o.id, size: o.size }))
   res.json({ tick, total, avgEnergy, avgSize, largest })
+})
+
+// Admin: get/update quadtree config (no auth in MVP)
+app.get('/config/quadtree', (req, res) => {
+  try {
+    const p = path.join(__dirname, 'config', 'quadtree.json')
+    if (!fs.existsSync(p)) return res.status(404).json({ error: 'not found' })
+    const c = JSON.parse(fs.readFileSync(p, 'utf8'))
+    return res.json(c)
+  } catch (e) { return res.status(500).json({ error: 'read failed' }) }
+})
+
+app.post('/config/quadtree', (req, res) => {
+  const { threshold, maxObjects, maxLevel } = req.body
+  try {
+    saveQuadtreeConfig({ threshold, maxObjects, maxLevel })
+    reloadQuadtreeConfig()
+    return res.json({ ok: true })
+  } catch (e) { return res.status(500).json({ error: e.toString() }) }
 })
 
 // REST: POST /spawn
