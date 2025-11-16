@@ -1,0 +1,8 @@
+# Exclude build artifacts and generated files from GitHub language stats
+frontend/.next/** linguist-vendored
+backend/rust/target/** linguist-vendored
+node_modules/** linguist-vendored
+
+# Also mark as generated where appropriate
+frontend/.next/** linguist-generated
+backend/rust/target/** linguist-generated

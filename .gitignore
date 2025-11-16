@@ -40,3 +40,6 @@ tmp/
 *.tgz
 *.swp
 Makefile
+frontend/.next/
+backend/rust/target/
+node_modules/
