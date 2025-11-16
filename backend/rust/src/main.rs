@@ -117,6 +117,8 @@ async fn main() -> std::io::Result<()> {
                         let dist2 = dx*dx + dy*dy;
                         let influence = (t.amplitude.unwrap_or(0.6)) * (-dist2/(2.0*sigma*sigma)).exp();
                         world.maps.temperatureMap[gy][gx] += influence * 0.5;
+                        // small nutrient influx on touch
+                        world.maps.foodMap[gy][gx] = (world.maps.foodMap[gy][gx] + influence * 0.1).min(1.0);
                     }
                 }
             }
