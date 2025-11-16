@@ -88,9 +88,11 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
           const dx = cx - t.x
           const dy = cy - t.y
           const dist2 = dx*dx + dy*dy
-          const sigma = t.sigma || 30
-          const influence = (t.amplitude || 0.6) * Math.exp(-dist2/(2*sigma*sigma))
-          worldMaps.temperatureMap[gy][gx] += influence * dt
+            const sigma = t.sigma || 30
+            const influence = (t.amplitude || 0.6) * Math.exp(-dist2/(2*sigma*sigma))
+            worldMaps.temperatureMap[gy][gx] += influence * dt
+            // add a small amount of food growth around a touch - e.g., nutrient influx
+            worldMaps.foodMap[gy][gx] = Math.min(1.0, worldMaps.foodMap[gy][gx] + influence * dt * 0.2)
         }
       }
     }
