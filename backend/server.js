@@ -43,8 +43,8 @@ app.post('/spawn', (req, res) => {
   spawnCounts[ip][today] += 1
   (async () => {
     try {
-      const resp = await fetch(`${RUST_URL}/spawn`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seedTraits ? { seedTraits } : {})
+        const resp = await fetch(`${RUST_URL}/spawn`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seedTraits || {})
       })
       const parsed = await resp.json()
       const newOrg = parsed.organism || parsed
