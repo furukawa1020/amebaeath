@@ -9,11 +9,13 @@ const { updateOrganism, simulateWorldStep } = require('./world')
 const fetch = require('node-fetch')
 
 const app = express()
+const morgan = require('morgan')
 // limit CORS to frontend host if provided, otherwise allow all for dev
 const FRONTEND_HOST = process.env.FRONTEND_HOST
 if (FRONTEND_HOST) app.use(cors({ origin: FRONTEND_HOST }))
 else app.use(cors())
 app.use(express.json())
+app.use(morgan('tiny'))
 
 const server = http.createServer(app)
 const io = new Server(server, { cors: { origin: '*' } })
