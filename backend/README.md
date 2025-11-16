@@ -27,3 +27,6 @@ Start Rust service (if you have Rust toolchain):
 
 
 - rate-limit は単純な IP カウント。プロダクションでは堅牢な対策を追加してください。
+
+DB マイグレーション
+- PostgreSQL を使う場合は `backend/db/schema.sql` を実行してテーブルを作成してください。Railway の Postgres を利用する場合は SQL を直接 Console に貼って実行できます。マイグレーションは Flyway や Liquibase を利用して自動化することを推奨します。
