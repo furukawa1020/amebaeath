@@ -6,6 +6,8 @@ const fs = require('fs')
 const path = require('path')
 const { v4: uuidv4 } = require('uuid')
 const { updateOrganism, simulateWorldStep } = require('./world')
+const fetch = require('node-fetch')
+const RUST_URL = process.env.RUST_URL || 'http://localhost:8081'
 
 const app = express()
 app.use(cors())
@@ -100,24 +102,18 @@ io.on('connection', (socket) => {
   })
 })
 
-// World loop: simple, tick every 1s and inner simulation steps
-setInterval(() => {
-  const dt = 1.0
+// World loop: fetch authoritative state from Rust simulation and broadcast
+setInterval(async () => {
   tick += 1
-  // perform several small steps to smooth
-  for (let i=0;i<4;i++) {
-    const res = simulateWorldStep(organisms, TOUCH_EVENTS, 0.25, contactMap)
-    if (res && res.contactMap) contactMap = res.contactMap
-    if (res && res.events && res.events.length) {
-      res.events.forEach(e => io.emit(e.type, e))
-    }
+  try {
+    const resp = await fetch(`${RUST_URL}/state`)
+    const parsed = await resp.json()
+    const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
+    organisms = (parsed.organisms || []).map(o => ({ ...o }))
+    io.emit('tick', { tick, updates })
+  } catch (e) {
+    console.error('error fetching state from rust backend', e && e.stack ? e.stack : e.toString())
   }
-  // broadcast minimal diff (for MVP we broadcast full small set)
-  const updates = organisms.map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
-  io.emit('tick', { tick, updates })
-  // cleanup old touch events
-  const now = Date.now()
-  while (TOUCH_EVENTS.length && now - TOUCH_EVENTS[0].createdAt > 1000*60*10) TOUCH_EVENTS.shift()
 }, 1000)
 
 const PORT = process.env.PORT || 3001
