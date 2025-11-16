@@ -43,6 +43,19 @@ const { Pool } = require('pg')
 const DATABASE_URL = process.env.DATABASE_URL
 let dbPool = null
 if (DATABASE_URL) dbPool = new Pool({ connectionString: DATABASE_URL })
+// optional redis for distributed/cluster spawn counting and pub/sub
+let redisClient = null
+const REDIS_URL = process.env.REDIS_URL
+if (REDIS_URL) {
+  try {
+    const { createClient } = require('redis')
+    redisClient = createClient({ url: REDIS_URL })
+    redisClient.connect().catch((err) => { console.warn('redis connect failed', err); redisClient = null })
+  } catch (err) {
+    console.warn('redis init failed', err)
+    redisClient = null
+  }
+}
 const { saveQuadtreeConfig, reloadQuadtreeConfig } = require('./world')
 
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
@@ -72,6 +85,13 @@ app.get('/stats', (req, res) => {
   res.json({ tick, total, avgEnergy, avgSize, largest })
 })
 
+// lightweight health endpoint exposing DB/Redis status
+app.get('/health', (req, res) => {
+  const db = !!dbPool
+  const redis = !!redisClient
+  res.json({ ok: true, db, redis, tick })
+})
+
 // Admin: get/update quadtree config (no auth in MVP)
 app.get('/config/quadtree', (req, res) => {
   try {
@@ -97,6 +117,25 @@ app.post('/spawn', async (req, res) => {
   console.log('POST /spawn ip', ip, 'DB?', !!dbPool)
   const today = new Date().toISOString().slice(0,10)
   try {
+    // Use Redis if available for distributed counters
+    if (redisClient) {
+      try {
+        const key = `spawn:${ip}:${today}`
+        const count = await redisClient.incr(key)
+        if (Number(count) === 1) {
+          // set expiry until midnight
+          const now = new Date()
+          const ttl = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()+1) - now) / 1000)
+          await redisClient.expire(key, ttl)
+        }
+        if (Number(count) > 1) return res.status(429).json({ error: 'spawn limit reached for today (redis)' })
+      } catch (err) {
+        console.warn('redis error on spawn, falling back', err)
+        // disable redis for future tries to avoid repeated timeouts
+        try { if (redisClient) redisClient.disconnect() } catch(e){}
+        redisClient = null
+      }
+    }
     // Try DB-backed daily spawn counter first (atomic upsert)
     if (dbPool) {
       const sql = `INSERT INTO spawn_counts (ip, day, count) VALUES ($1, $2, 1)
