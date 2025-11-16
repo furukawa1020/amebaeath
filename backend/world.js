@@ -15,6 +15,10 @@ const GRID_RESOLUTION = 200
 const CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
 const TEMPERATURE_DECAY = 0.01 // per step
 const FOOD_DECAY = 0.001
+// Quadtree tuning - adjust via env vars if needed
+const QUADTREE_THRESHOLD = parseInt(process.env.QUADTREE_THRESHOLD || '128')
+const QUADTREE_MAX_OBJECTS = parseInt(process.env.QUADTREE_MAX_OBJECTS || '8')
+const QUADTREE_MAX_LEVEL = parseInt(process.env.QUADTREE_MAX_LEVEL || '6')
 const FOOD_CONSUMPTION_RATE = 0.02 // how much food removed per second when feeding
 const FOOD_ENERGY_GAIN = 0.06
 const MIN_SURVIVAL_ENERGY = 0.02
@@ -203,7 +207,7 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
 // Spatial hash helps find neighbors quickly
 // Quadtree implementation (simple, non-optimized) for O(log n) neighbor queries
 class QuadtreeNode {
-  constructor(x, y, w, h, level = 0, maxLevel = 6, maxObjects = 8) {
+  constructor(x, y, w, h, level = 0, maxLevel = QUADTREE_MAX_LEVEL, maxObjects = QUADTREE_MAX_OBJECTS) {
     this.bounds = { x, y, w, h }
     this.objects = []
     this.nodes = []
@@ -258,7 +262,7 @@ class QuadtreeNode {
 }
 
 function buildQuadtree(list, worldSize) {
-  const q = new QuadtreeNode(0,0,worldSize,worldSize)
+  const q = new QuadtreeNode(0,0,worldSize,worldSize,0,QUADTREE_MAX_LEVEL,QUADTREE_MAX_OBJECTS)
   for (const item of list) q.insert(item)
   return q
 }
