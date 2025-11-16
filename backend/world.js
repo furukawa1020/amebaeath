@@ -213,7 +213,7 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
   // expire organisms with no energy or below minimum size
   for (let i = organisms.length - 1; i >= 0; i--) {
     const o = organisms[i]
-    if (o.energy <= MIN_SURVIVAL_ENERGY || o.size < MIN_SIZE) {
+    if (o.energy <= MIN_SURVIVAL_ENERGY || o.size < MIN_SIZE || (o.expiresAt && Date.now() >= o.expiresAt)) {
       removedIds.add(o.id)
       events.push({ type: 'expired', id: o.id })
       organisms.splice(i, 1)

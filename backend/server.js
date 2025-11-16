@@ -115,10 +115,7 @@ app.post('/spawn', (req, res) => {
         spawnCounts[ip][today] += 1
       }
 
-  const seedTraits = req.body.seedTraits || null
-  spawnCounts[ip][today] += 1
-  (async () => {
-    try {
+      const seedTraits = req.body.seedTraits || null
       if (USE_RUST) {
         const resp = await fetch(`${RUST_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seedTraits }) })
         const parsed = await resp.json()
@@ -199,6 +196,7 @@ function createOrganism(seedTraits) {
     age: 0,
     spawnedAt: Date.now(),
     lastUpdated: Date.now()
+    ,expiresAt: Date.now() + (24*3600*1000) + Math.random() * 24*3600*1000 // 24-48h
   }
 }
 
