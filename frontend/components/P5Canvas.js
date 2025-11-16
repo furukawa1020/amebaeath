@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import io from 'socket.io-client'
 import anime from 'animejs/lib/anime.es.js'
 
 export default function P5Canvas({ wsUrl }) {
   const canvasRef = useRef(null)
   const socketRef = useRef(null)
+  const [showFood, setShowFood] = useState(false)
 
   useEffect(() => {
     let p5Instance = null
@@ -111,7 +112,7 @@ export default function P5Canvas({ wsUrl }) {
             .then(r => r.json()).then(d => console.log('touch', d)).catch(e=>console.error(e))
         }
 
-        s.draw = () => {
+  s.draw = () => {
           s.background(12, 18, 24)
           // draw heatmap if available
           if (maps && maps.temperatureMap) {
@@ -128,6 +129,24 @@ export default function P5Canvas({ wsUrl }) {
                 const g = Math.max(0, Math.min(255, Math.round(255*(1-val))))
                 s.noStroke()
                 s.fill(r, g, 60, alpha)
+                const cx = s.width * (gx / cols)
+                const cy = s.height * (gy / rows)
+                s.rect(cx, cy, s.width/cols+1, s.height/rows+1)
+              }
+            }
+          }
+          // option: draw food map overlay in green
+          if (showFood && maps && maps.foodMap) {
+            const grid = maps.foodMap
+            const rows = grid.length
+            const cols = grid[0]?.length || 0
+            for (let gy=0; gy<rows; gy++) {
+              for (let gx=0; gx<cols; gx++) {
+                const val = grid[gy][gx]
+                if (!val || val <= 0) continue
+                const alpha = Math.min(200, Math.round(180 * Math.min(1, val)))
+                s.noStroke()
+                s.fill(40, 255, 80, alpha)
                 const cx = s.width * (gx / cols)
                 const cy = s.height * (gy / rows)
                 s.rect(cx, cy, s.width/cols+1, s.height/rows+1)

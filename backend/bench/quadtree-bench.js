@@ -6,7 +6,7 @@ function bench(N, queries = 1000) {
     list.push({ id: '' + i, position: { x: Math.random() * WORLD_SIZE, y: Math.random() * WORLD_SIZE } })
   }
   const cellSize = WORLD_SIZE / 200
-  const gridIndex = buildSpatialHash(list, cellSize, WORLD_SIZE)
+  const gridIndex = buildGridIndex(list, cellSize, WORLD_SIZE)
   // force fallback quadtree by increasing threshold if supported
   const times = { grid: 0, quadtree: 0 }
   // measure queries

@@ -273,7 +273,7 @@ function buildQuadtree(list, worldSize) {
 function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
   if (!Array.isArray(list)) return { query: () => [] }
   // use quadtree for larger numbers to reduce overhead
-  if (list.length > 128) {
+  if (list.length > QUADTREE_THRESHOLD) {
     const q = buildQuadtree(list, worldSize)
     return {
       query: (pos, radius) => {
@@ -349,6 +349,57 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
   }
 }
 
+// Always build a pure grid index (for benchmarking/comparison)
+function buildGridIndex(list, cellSize, worldSize = WORLD_SIZE) {
+  if (!Array.isArray(list)) return { query: () => [] }
+  const grid = new Map()
+  const insert = (obj) => {
+    const gx = Math.floor(obj.position.x / cellSize)
+    const gy = Math.floor(obj.position.y / cellSize)
+    const key = gx + ':' + gy
+    if (!grid.has(key)) grid.set(key, [])
+    grid.get(key).push(obj)
+  }
+  for (const o of list) insert(o)
+
+  return {
+    query: (pos, radius) => {
+      const toQuery = [pos]
+      if (pos.x - radius < 0) toQuery.push({ x: pos.x + worldSize, y: pos.y })
+      if (pos.x + radius > worldSize) toQuery.push({ x: pos.x - worldSize, y: pos.y })
+      if (pos.y - radius < 0) toQuery.push({ x: pos.x, y: pos.y + worldSize })
+      if (pos.y + radius > worldSize) toQuery.push({ x: pos.x, y: pos.y - worldSize })
+      if (pos.x - radius < 0 && pos.y - radius < 0) toQuery.push({ x: pos.x + worldSize, y: pos.y + worldSize })
+      if (pos.x + radius > worldSize && pos.y + radius > worldSize) toQuery.push({ x: pos.x - worldSize, y: pos.y - worldSize })
+      const results = []
+      const seen = new Set()
+      for (const qpos of toQuery) {
+        const minX = Math.floor((qpos.x - radius) / cellSize)
+        const maxX = Math.floor((qpos.x + radius) / cellSize)
+        const minY = Math.floor((qpos.y - radius) / cellSize)
+        const maxY = Math.floor((qpos.y + radius) / cellSize)
+        for (let gx = minX; gx <= maxX; gx++) {
+          for (let gy = minY; gy <= maxY; gy++) {
+            const key = gx + ':' + gy
+            const bucket = grid.get(key)
+            if (!bucket) continue
+            for (const obj of bucket) {
+              if (seen.has(obj.id)) continue
+              const dx = obj.position.x - qpos.x
+              const dy = obj.position.y - qpos.y
+              if (dx*dx + dy*dy <= radius*radius) {
+                results.push(obj)
+                seen.add(obj.id)
+              }
+            }
+          }
+        }
+      }
+      return results
+    }
+  }
+}
+
 // Add a friendly query API onto the Quadtree
 QuadtreeNode.prototype.query = function(pos, radius) {
   const range = { x: pos.x - radius, y: pos.y - radius, w: radius*2, h: radius*2 }
@@ -371,4 +422,4 @@ function tryEvolution(org, events) {
   events.push({ type: 'evolve', id: org.id, traits: org.traits })
 }
 
-module.exports = { updateOrganism, simulateWorldStep, buildSpatialHash, QuadtreeNode, WORLD_SIZE }
+module.exports = { updateOrganism, simulateWorldStep, buildSpatialHash, buildGridIndex, QuadtreeNode, WORLD_SIZE, QUADTREE_THRESHOLD, QUADTREE_MAX_OBJECTS, QUADTREE_MAX_LEVEL }
