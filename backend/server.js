@@ -92,14 +92,12 @@ app.post('/config/quadtree', (req, res) => {
 })
 
 // REST: POST /spawn
-app.post('/spawn', (req, res) => {
+app.post('/spawn', async (req, res) => {
   const ip = (req.headers['x-forwarded-for'] || req.ip || 'unknown')
   console.log('POST /spawn ip', ip, 'DB?', !!dbPool)
   const today = new Date().toISOString().slice(0,10)
-  // server-side persistent rate-limit (when db present)
-  (async () => {
-    try {
-      console.log('spawn branch start for', ip)
+  try {
+    console.log('spawn branch start for', ip)
       if (dbPool) {
         // try to increment atomically
         const sql = `INSERT INTO spawn_counts (ip, day, count) VALUES ($1, $2, 1)
@@ -144,11 +142,27 @@ app.post('/spawn', (req, res) => {
         io.emit('spawn', { organism: newOrg })
         return res.status(201).json({ organism: newOrg })
       }
-    } catch (err) {
-      console.error('spawn proxy error', err)
-      return res.status(500).json({ error: 'backend spawn failed' })
+    console.log('spawn allowed, calling spawn logic')
+    const seedTraits = req.body.seedTraits || null
+    if (USE_RUST) {
+      const resp = await fetch(`${RUST_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seedTraits }) })
+      const parsed = await resp.json()
+      const newOrg = parsed.organism || parsed
+      io.emit('spawn', { organism: newOrg })
+      return res.status(201).json({ organism: newOrg })
+    } else {
+      const newOrg = createOrganism(seedTraits)
+      organisms.push(newOrg)
+      if (dbPool) {
+        try { await dbPool.query('INSERT INTO organisms (id, data, created_at, updated_at) VALUES ($1,$2,now(),now())', [newOrg.id, JSON.stringify(newOrg)]) } catch(err) { console.error('db spawn err',err) }
+      }
+      io.emit('spawn', { organism: newOrg })
+      return res.status(201).json({ organism: newOrg })
     }
-  })()
+  } catch (err) {
+    console.error('spawn proxy error', err)
+    return res.status(500).json({ error: 'backend spawn failed' })
+  }
 })
 
 // REST: POST /touch
