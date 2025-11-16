@@ -252,6 +252,11 @@ function startWorldLoop() {
                 await dbPool.query('UPDATE organisms SET data = $1, updated_at = now() WHERE id = $2', [ JSON.stringify(organisms.find(o=>o.id===e.id) || {}), e.id ])
               } catch (err) { console.error('db evolve persist error', err) }
             }
+              if (dbPool && e.type === 'expired') {
+                try {
+                  await dbPool.query('DELETE FROM organisms WHERE id = $1', [e.id])
+                } catch (err) { console.error('db expire persist error', err) }
+              }
           }
         }
       }
