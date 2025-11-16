@@ -7,6 +7,9 @@ const ENERGY_DECAY_PER_SEC = 0.01
 const MAX_SPEED = 2.0
 const PREDATION_CONTACT_TIME = 1.0 // seconds
 const HITBOX_SCALE = 8 // world scale factor for distance vs size
+const NEIGHBOR_RADIUS = 100
+const COHESION_FACTOR = 0.08
+const ESCAPE_FACTOR = 0.18
 
 function updateOrganism(org, dt, world) {
   // Energy decay
@@ -53,6 +56,25 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
   const contactTimes = contactMap
 
   organisms.forEach(org => {
+    // Cohesion: head towards average of nearby neighbors
+    const neighbors = organisms.filter(o => o.id !== org.id && Math.hypot(o.position.x - org.position.x, o.position.y - org.position.y) < NEIGHBOR_RADIUS)
+    if (neighbors.length > 0) {
+      const avgX = neighbors.reduce((s, n) => s + n.position.x, 0) / neighbors.length
+      const avgY = neighbors.reduce((s, n) => s + n.position.y, 0) / neighbors.length
+      const desiredX = avgX - org.position.x
+      const desiredY = avgY - org.position.y
+      org.velocity.vx += (desiredX * COHESION_FACTOR) * dt
+      org.velocity.vy += (desiredY * COHESION_FACTOR) * dt
+    }
+
+    // Escape: if any predator larger than this agent is near, drift away
+    const threats = organisms.filter(o => o.id !== org.id && o.size > org.size * 1.1 && Math.hypot(o.position.x - org.position.x, o.position.y - org.position.y) < NEIGHBOR_RADIUS)
+    if (threats.length > 0) {
+      const threatVecX = threats.reduce((s, t) => s + (org.position.x - t.position.x), 0)
+      const threatVecY = threats.reduce((s, t) => s + (org.position.y - t.position.y), 0)
+      org.velocity.vx += (threatVecX * ESCAPE_FACTOR) * dt
+      org.velocity.vy += (threatVecY * ESCAPE_FACTOR) * dt
+    }
     if (heat) {
       const dx = heat.x - org.position.x
       const dy = heat.y - org.position.y
@@ -109,7 +131,5 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
 
   return { removedIds: Array.from(removedIds), events, contactMap }
 }
-
-module.exports = { updateOrganism, simulateWorldStep }
 
 module.exports = { updateOrganism, simulateWorldStep }
