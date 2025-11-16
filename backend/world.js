@@ -180,33 +180,66 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
 }
 
 // Spatial hash helps find neighbors quickly
-function buildSpatialHash(list, cellSize) {
-  const map = new Map()
-  for (const item of list) {
-    const gx = Math.floor(item.position.x / cellSize)
-    const gy = Math.floor(item.position.y / cellSize)
-    const key = gx + ':' + gy
-    if (!map.has(key)) map.set(key, [])
-    map.get(key).push(item)
+// Quadtree implementation (simple, non-optimized) for O(log n) neighbor queries
+class QuadtreeNode {
+  constructor(x, y, w, h, level = 0, maxLevel = 6, maxObjects = 8) {
+    this.bounds = { x, y, w, h }
+    this.objects = []
+    this.nodes = []
+    this.level = level
+    this.maxLevel = maxLevel
+    this.maxObjects = maxObjects
   }
-  return {
-    query(pos, radius) {
-      const minX = Math.floor((pos.x - radius) / cellSize)
-      const maxX = Math.floor((pos.x + radius) / cellSize)
-      const minY = Math.floor((pos.y - radius) / cellSize)
-      const maxY = Math.floor((pos.y + radius) / cellSize)
-      const out = []
-      for (let gx = minX; gx <= maxX; gx++) {
-        for (let gy = minY; gy <= maxY; gy++) {
-          const key = gx + ':' + gy
-          if (!map.has(key)) continue
-          for (const o of map.get(key)) out.push(o)
-        }
+  insert(obj) {
+    if (this.nodes.length > 0) {
+      const idx = this._getIndex(obj.position)
+      if (idx !== -1) return this.nodes[idx].insert(obj)
+    }
+    this.objects.push(obj)
+    if (this.objects.length > this.maxObjects && this.level < this.maxLevel) {
+      if (this.nodes.length === 0) this._split()
+      let i = 0
+      while (i < this.objects.length) {
+        const index = this._getIndex(this.objects[i].position)
+        if (index !== -1) this.nodes[index].insert(this.objects.splice(i, 1)[0])
+        else i++
       }
-      // filter by exact distance
-      return out.filter(o => Math.hypot(o.position.x - pos.x, o.position.y - pos.y) <= radius)
     }
   }
+  queryRange(range, found = []) {
+    if (!this._intersects(range, this.bounds)) return found
+    for (const obj of this.objects) {
+      if (this._pointInRange(obj.position, range)) found.push(obj)
+    }
+    for (const node of this.nodes) node.queryRange(range, found)
+    return found
+  }
+  _split() {
+    const { x, y, w, h } = this.bounds
+    const hw = w/2, hh = h/2
+    this.nodes.push(new QuadtreeNode(x, y, hw, hh, this.level+1, this.maxLevel, this.maxObjects))
+    this.nodes.push(new QuadtreeNode(x+hw, y, hw, hh, this.level+1, this.maxLevel, this.maxObjects))
+    this.nodes.push(new QuadtreeNode(x, y+hh, hw, hh, this.level+1, this.maxLevel, this.maxObjects))
+    this.nodes.push(new QuadtreeNode(x+hw, y+hh, hw, hh, this.level+1, this.maxLevel, this.maxObjects))
+  }
+  _getIndex(pos) {
+    const { x, y, w, h } = this.bounds
+    const midX = x + w/2
+    const midY = y + h/2
+    const left = pos.x < midX, top = pos.y < midY
+    if (left && top) return 0
+    if (!left && top) return 1
+    if (left && !top) return 2
+    return 3
+  }
+  _intersects(a, b) { return !(a.x > b.x + b.w || a.x + a.w < b.x || a.y > b.y + b.h || a.y + a.h < b.y) }
+  _pointInRange(p, r) { return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h }
+}
+
+function buildQuadtree(list, worldSize) {
+  const q = new QuadtreeNode(0,0,worldSize,worldSize)
+  for (const item of list) q.insert(item)
+  return q
 }
 
 // Evolution: simple heuristic - if organism has high energy and large size and random chance
