@@ -214,9 +214,11 @@ setInterval(async () => {
 }, 60 * 1000)
 
 const PORT = process.env.PORT || 3001
-server.listen(PORT, () => {
-  console.log(`Ameba Earth backend listening on ${PORT}`)
-})
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`Ameba Earth backend listening on ${PORT}`)
+  })
+}
 
 // export app for unit testing
 module.exports = { app };
