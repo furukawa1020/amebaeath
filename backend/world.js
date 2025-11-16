@@ -22,9 +22,20 @@ const path = require('path')
 const qcPath = path.join(__dirname, 'config', 'quadtree.json')
 let qc = { threshold: 128, maxObjects: 8, maxLevel: 6 }
 try { if (fs.existsSync(qcPath)) qc = JSON.parse(fs.readFileSync(qcPath, 'utf8')) } catch (e) { console.error('read quadtree config err', e) }
-const QUADTREE_THRESHOLD = process.env.QUADTREE_THRESHOLD ? parseInt(process.env.QUADTREE_THRESHOLD) : qc.threshold
-const QUADTREE_MAX_OBJECTS = process.env.QUADTREE_MAX_OBJECTS ? parseInt(process.env.QUADTREE_MAX_OBJECTS) : qc.maxObjects
-const QUADTREE_MAX_LEVEL = process.env.QUADTREE_MAX_LEVEL ? parseInt(process.env.QUADTREE_MAX_LEVEL) : qc.maxLevel
+let QUADTREE_THRESHOLD = process.env.QUADTREE_THRESHOLD ? parseInt(process.env.QUADTREE_THRESHOLD) : qc.threshold
+let QUADTREE_MAX_OBJECTS = process.env.QUADTREE_MAX_OBJECTS ? parseInt(process.env.QUADTREE_MAX_OBJECTS) : qc.maxObjects
+let QUADTREE_MAX_LEVEL = process.env.QUADTREE_MAX_LEVEL ? parseInt(process.env.QUADTREE_MAX_LEVEL) : qc.maxLevel
+
+function saveQuadtreeConfig(conf) {
+  qc = { threshold: conf.threshold || qc.threshold, maxObjects: conf.maxObjects || qc.maxObjects, maxLevel: conf.maxLevel || qc.maxLevel }
+  try { fs.writeFileSync(qcPath, JSON.stringify(qc, null, 2), 'utf8') } catch (e) { console.error('write quadtree config err', e) }
+  // update current runtime variables if env-based overrides are not set
+  if (!process.env.QUADTREE_THRESHOLD) QUADTREE_THRESHOLD = qc.threshold
+  if (!process.env.QUADTREE_MAX_OBJECTS) QUADTREE_MAX_OBJECTS = qc.maxObjects
+  if (!process.env.QUADTREE_MAX_LEVEL) QUADTREE_MAX_LEVEL = qc.maxLevel
+}
+
+function reloadQuadtreeConfig() { try { if (fs.existsSync(qcPath)) { qc = JSON.parse(fs.readFileSync(qcPath,'utf8')); if (!process.env.QUADTREE_THRESHOLD) QUADTREE_THRESHOLD = qc.threshold; if (!process.env.QUADTREE_MAX_OBJECTS) QUADTREE_MAX_OBJECTS = qc.maxObjects; if (!process.env.QUADTREE_MAX_LEVEL) QUADTREE_MAX_LEVEL = qc.maxLevel } } catch(e){console.error('reload quadtree err',e)} }
 const FOOD_CONSUMPTION_RATE = 0.02 // how much food removed per second when feeding
 const FOOD_ENERGY_GAIN = 0.06
 const MIN_SURVIVAL_ENERGY = 0.02
