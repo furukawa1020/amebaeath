@@ -52,6 +52,23 @@ export default function P5Canvas({ wsUrl }) {
             }
           })
         })
+        socketRef.current.on('spawn', (payload) => {
+          const o = payload.organism
+          if (!o) return
+          organisms.push(o)
+        })
+        socketRef.current.on('touch', (payload) => {
+          // used for visual pulse; we don't use yet besides storing
+          // could add animation when received
+        })
+
+        s.mouseClicked = () => {
+          const api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+          const wx = (s.mouseX / s.width) * 2000
+          const wy = (s.mouseY / s.height) * 2000
+          fetch(`${api}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: wx, y: wy }) })
+            .then(r => r.json()).then(d => console.log('touch', d)).catch(e=>console.error(e))
+        }
 
         s.draw = () => {
           s.background(12, 18, 24)
