@@ -59,6 +59,7 @@ if (REDIS_URL) {
   }
 }
 const { saveQuadtreeConfig, reloadQuadtreeConfig } = require('./world')
+const { execFile } = require('child_process')
 
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
 const spawnCounts = {}
@@ -111,6 +112,35 @@ app.post('/config/quadtree', (req, res) => {
     reloadQuadtreeConfig()
     return res.json({ ok: true })
   } catch (e) { return res.status(500).json({ error: e.toString() }) }
+})
+
+// Admin endpoint: run autotune (writes recommended config to config/quadtree.json)
+app.post('/config/quadtree/autotune', (req, res) => {
+  // This endpoint executes the bench script as a child process and returns the result.
+  const script = path.join(__dirname, 'bench', 'auto-tune.js')
+  // allow optional overrides via body for sizes and queries to make the endpoint testable
+  const sizes = req.body && req.body.sizes ? req.body.sizes.join(',') : undefined
+  const queries = req.body && req.body.queries ? String(req.body.queries) : undefined
+
+  const env = Object.assign({}, process.env)
+  if (sizes) env.AUTOTUNE_SIZES = sizes
+  if (queries) env.AUTOTUNE_QUERIES = queries
+  execFile(process.execPath, [script], { env, cwd: path.join(__dirname, '.') }, (err, stdout, stderr) => {
+    if (err) {
+      console.error('autotune failed', err, stderr)
+      return res.status(500).json({ error: 'autotune failed', reason: err.message })
+    }
+    // read recommended file
+    const p = path.join(__dirname, 'config', 'quadtree.json')
+    try {
+      const conf = JSON.parse(fs.readFileSync(p, 'utf8'))
+      // reload into runtime
+      reloadQuadtreeConfig()
+      return res.json({ ok: true, recommended: conf, output: stdout })
+    } catch (e) {
+      return res.status(500).json({ error: 'no-config-written', reason: e.message, output: stdout })
+    }
+  })
 })
 
 // REST: POST /spawn

@@ -17,11 +17,14 @@ function measure(N, queries = 2000) {
 }
 
 async function autotune() {
-  const sizes = [50, 200, 400, 800, 1600, 3200]
+  const envSizes = process.env.AUTOTUNE_SIZES
+  const envQueries = process.env.AUTOTUNE_QUERIES
+  const sizes = envSizes ? envSizes.split(',').map(s => Number(s.trim())) : [50, 200, 400, 800, 1600, 3200]
+  const queries = envQueries ? parseInt(envQueries, 10) : 1000
   console.log('Auto tuning quadtree... running microbench')
   const results = []
   for (const s of sizes) {
-    const r = measure(s, 1000)
+    const r = measure(s, queries)
     console.log(`N=${s} grid=${r.gridTime}ms quad=${r.quadTime}ms`)
     results.push(r)
   }

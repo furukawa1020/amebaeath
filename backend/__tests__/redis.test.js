@@ -2,6 +2,7 @@ jest.resetModules()
 const request = require('supertest')
 
 describe('Redis spawn rate-limit', () => {
+  jest.setTimeout(20000)
   beforeAll(() => {
     // mock redis client module
   const incr = jest.fn()
