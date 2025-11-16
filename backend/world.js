@@ -293,12 +293,8 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
       if (pos.x + radius > worldSize && pos.y + radius > worldSize) toQuery.push({ x: pos.x - worldSize, y: pos.y - worldSize })
       const results = []
       const seen = new Set()
-      for (const qpos of toQuery) {
-    // We will query mirrored positions; compute ranges per mirrored origin
-    const results = []
-    const seen = new Set()
-      // iterate over mirrored positions
-      for (const qpos of toQuery) {
+  // iterate over mirrored positions
+  for (const qpos of toQuery) {
         const minX = Math.floor((qpos.x - radius) / cellSize)
         const maxX = Math.floor((qpos.x + radius) / cellSize)
         const minY = Math.floor((qpos.y - radius) / cellSize)
@@ -320,24 +316,7 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
           }
         }
       }
-      const maxY = Math.floor((pos.y + radius) / cellSize)
-        for (let gx = minX; gx <= maxX; gx++) {
-          for (let gy = minY; gy <= maxY; gy++) {
-          const key = gx + ':' + gy
-          const bucket = grid.get(key)
-          if (!bucket) continue
-          for (const obj of bucket) {
-            if (seen.has(obj.id)) continue
-            const dx = obj.position.x - qpos.x
-            const dy = obj.position.y - qpos.y
-            if (dx*dx + dy*dy <= radius*radius) {
-              results.push(obj)
-              seen.add(obj.id)
-            }
-          }
-        }
-      }
-      }
+      // cleaned up mirrored query; results are already accumulated
       return results
     }
   }
