@@ -25,8 +25,17 @@ struct Organism {
 }
 
 #[derive(Clone, Serialize)]
+struct WorldMaps {
+    temperatureMap: Vec<Vec<f64>>,
+    foodMap: Vec<Vec<f64>>,
+    densityMap: Vec<Vec<u32>>,
+}
+
+#[derive(Clone, Serialize)]
 struct World {
-    organisms: Vec<Organism>
+    organisms: Vec<Organism>,
+    touch_events: Vec<TouchRequest>,
+    maps: WorldMaps,
 }
 
 #[derive(Deserialize)]
@@ -51,9 +60,11 @@ async fn spawn(req: web::Json<SpawnRequest>, world: web::Data<Arc<Mutex<World>>>
     HttpResponse::Created().json(org)
 }
 
-async fn handle_touch(payload: web::Json<TouchRequest>, _world: web::Data<Arc<Mutex<World>>>) -> impl Responder {
+async fn handle_touch(payload: web::Json<TouchRequest>, world: web::Data<Arc<Mutex<World>>>) -> impl Responder {
     // MVP: just accept and ignore, but would update temperatureMap in real implementation
     let t = payload.into_inner();
+    let mut w = world.lock().unwrap();
+    w.touch_events.push(t.clone());
     let res = serde_json::json!({"ok": true, "touch": {"x": t.x, "y": t.y, "amplitude": t.amplitude.unwrap_or(0.6), "sigma": t.sigma.unwrap_or(30.0)}});
     HttpResponse::Ok().json(res)
 }
@@ -61,7 +72,7 @@ async fn handle_touch(payload: web::Json<TouchRequest>, _world: web::Data<Arc<Mu
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // seed world
-    let world = World { organisms: vec![] };
+    let world = World { organisms: vec![], touch_events: vec![], maps: WorldMaps { temperatureMap: vec![vec![0.0; 200]; 200], foodMap: vec![vec![0.0;200];200], densityMap: vec![vec![0;200];200] } };
     let world = Arc::new(Mutex::new(world));
 
     // initial 10 organisms
