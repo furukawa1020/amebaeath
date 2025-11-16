@@ -29,6 +29,9 @@ export default function P5Canvas({ wsUrl }) {
         socketRef.current.on('init', (data) => {
           organisms = data.organisms || []
         })
+        socketRef.current.on('spawn', (data) => {
+          organisms.push(data.organism)
+        })
         socketRef.current.on('tick', (payload) => {
           const updates = payload.updates || []
           updates.forEach(u => {
@@ -43,7 +46,7 @@ export default function P5Canvas({ wsUrl }) {
           })
         })
 
-        s.draw = () => {
+  s.draw = () => {
           s.background(12, 18, 24)
           // draw organisms
           for (const o of organisms) {
@@ -53,11 +56,32 @@ export default function P5Canvas({ wsUrl }) {
             const sx = (x / 2000) * s.width
             const sy = (y / 2000) * s.height
             s.fill(200, 150, 220, 180)
-            s.ellipse(sx, sy, (o.size || 1) * 24, (o.size || 1) * 24)
+            // draw DNA layers as concentric colored rings
+            if (o.dna_layers && o.dna_layers.length) {
+              const layers = o.dna_layers.slice().reverse()
+              for (let li = 0; li < layers.length; li++) {
+                const r = (o.size || 1) * (24 + li * 6)
+                s.fill(layers[li] || '#ffffff')
+                s.ellipse(sx, sy, r, r)
+              }
+            }
+            // amd metaball - blend circles
+            s.fill(200, 150, 220, 200)
+            s.ellipse(sx, sy, (o.size || 1) * 18, (o.size || 1) * 18)
             // simple eye
             s.fill(10)
             s.ellipse(sx + 4, sy - 4, 3, 3)
           }
+        }
+        // add mouse click handler to send touch event → also send to server
+        s.mousePressed = () => {
+          if (!socketRef.current) return
+          const backUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+          const worldX = (s.mouseX / s.width) * 2000
+          const worldY = (s.mouseY / s.height) * 2000
+          fetch(`${backUrl}/touch`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: worldX, y: worldY })
+          }).catch(console.error)
         }
       }, canvasRef.current)
     })()

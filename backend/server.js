@@ -58,10 +58,10 @@ app.post('/spawn', (req, res) => {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seedTraits || {})
       })
       const parsed = await resp.json()
-      const newOrg = parsed.organism || parsed
-      organisms.push(newOrg)
-      io.emit('spawn', { organism: newOrg })
-      return res.status(201).json({ organism: newOrg })
+        const newOrg = parsed.organism || parsed
+        // do not push into local organisms when Rust is authoritative
+        io.emit('spawn', { organism: newOrg })
+        return res.status(201).json({ organism: newOrg })
     } catch (err) {
       console.error('spawn proxy error', err)
       return res.status(500).json({ error: 'backend spawn failed' })

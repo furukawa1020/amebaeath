@@ -24,7 +24,7 @@ struct Organism {
     energy: f64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 struct World {
     organisms: Vec<Organism>
 }
