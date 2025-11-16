@@ -299,7 +299,7 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
   // use quadtree for larger numbers to reduce overhead
   if (list.length > QUADTREE_THRESHOLD) {
     const q = buildQuadtree(list, worldSize)
-    return {
+    const wrapper = {
       query: (pos, radius) => {
         // handle wrap around by querying mirrored positions when near edges
         const candidates = []
@@ -316,11 +316,12 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
           const res = q.query(p, radius)
           for (const o of res) found.set(o.id, o)
         }
-        const o = { query: (pos, radius) => q.query(pos, radius) }
-        o._isQuadtree = true
-        return { query: o.query, _isQuadtree: true }
+        const arr = Array.from(found.values())
+        return arr
       }
     }
+    wrapper._isQuadtree = true
+    return wrapper
   }
 
   // grid-based index
