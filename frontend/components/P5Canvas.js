@@ -100,9 +100,16 @@ export default function P5Canvas({ wsUrl }) {
             // world coords -> screen: simple wrap and scale
             const sx = (x / 2000) * s.width
             const sy = (y / 2000) * s.height
-            s.fill(200, 150, 220, 180)
+            // draw dna layers as concentric rings
+            const dna = o.dna_layers || []
             const scale = o._scale || 1
-            s.ellipse(sx, sy, (o.size || 1) * 24 * scale, (o.size || 1) * 24 * scale)
+            const base = (o.size || 1) * 24 * scale
+            for (let li = dna.length - 1; li >= 0; li--) {
+              const c = dna[li]
+              s.fill(c)
+              const factor = 0.6 + (li / Math.max(1, dna.length)) * 0.6
+              s.ellipse(sx, sy, base * factor, base * factor)
+            }
             // draw DNA layers as concentric colored rings
             if (o.dna_layers && o.dna_layers.length) {
               const layers = o.dna_layers.slice().reverse()
@@ -115,9 +122,17 @@ export default function P5Canvas({ wsUrl }) {
             // amd metaball - blend circles
             s.fill(200, 150, 220, 200)
             s.ellipse(sx, sy, (o.size || 1) * 18, (o.size || 1) * 18)
-            // simple eye
+            // simple eye with state-based shape
             s.fill(10)
-            s.ellipse(sx + 4, sy - 4, 3, 3)
+            const eyeState = o.state || 'normal'
+            if (eyeState === 'alert') {
+              s.ellipse(sx + 4, sy - 4, 4, 8)
+            } else if (eyeState === 'sleep') {
+              s.arc(sx + 4, sy - 3, 6, 6, 0, Math.PI)
+            } else {
+              // normal
+              s.ellipse(sx + 4, sy - 4, 3, 3)
+            }
           }
 
           // draw touches as heat pulses

@@ -54,14 +54,18 @@ app.post('/spawn', (req, res) => {
   spawnCounts[ip][today] += 1
   (async () => {
     try {
-        const resp = await fetch(`${RUST_URL}/spawn`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seedTraits || {})
-      })
-      const parsed = await resp.json()
+      if (USE_RUST) {
+        const resp = await fetch(`${RUST_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seedTraits }) })
+        const parsed = await resp.json()
         const newOrg = parsed.organism || parsed
-        // do not push into local organisms when Rust is authoritative
         io.emit('spawn', { organism: newOrg })
         return res.status(201).json({ organism: newOrg })
+      } else {
+        const newOrg = createOrganism(seedTraits)
+        organisms.push(newOrg)
+        io.emit('spawn', { organism: newOrg })
+        return res.status(201).json({ organism: newOrg })
+      }
     } catch (err) {
       console.error('spawn proxy error', err)
       return res.status(500).json({ error: 'backend spawn failed' })
@@ -75,12 +79,19 @@ app.post('/touch', (req, res) => {
   if (typeof x !== 'number' || typeof y !== 'number') return res.status(400).json({ error: 'x,y required' })
   (async () => {
     try {
-      const resp = await fetch(`${RUST_URL}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x, y, amplitude, sigma }) })
-      const parsed = await resp.json()
-      const touch = parsed.touch || parsed
-      TOUCH_EVENTS.push(touch)
-      io.emit('touch', touch)
-      return res.json({ ok: true, touch })
+      if (USE_RUST) {
+        const resp = await fetch(`${RUST_URL}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x, y, amplitude, sigma }) })
+        const parsed = await resp.json()
+        const touch = parsed.touch || parsed
+        TOUCH_EVENTS.push(touch)
+        io.emit('touch', touch)
+        return res.json({ ok: true, touch })
+      } else {
+        const touch = { id: uuidv4(), x, y, amplitude, sigma, createdAt: Date.now() }
+        TOUCH_EVENTS.push(touch)
+        io.emit('touch', touch)
+        return res.json({ ok: true, touch })
+      }
     } catch (err) {
       console.error('touch proxy error', err)
       return res.status(500).json({ error: 'backend touch failed' })
