@@ -10,6 +10,11 @@ const HITBOX_SCALE = 8 // world scale factor for distance vs size
 const NEIGHBOR_RADIUS = 100
 const COHESION_FACTOR = 0.08
 const ESCAPE_FACTOR = 0.18
+const WORLD_SIZE = 2000
+const GRID_RESOLUTION = 200
+const CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
+const TEMPERATURE_DECAY = 0.01 // per step
+const FOOD_DECAY = 0.001
 
 function updateOrganism(org, dt, world) {
   // Energy decay
@@ -55,9 +60,13 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
   // contact times for predation: map keys 'predatorId:victimId'
   const contactTimes = contactMap
 
+  // spatial hash for neighbor queries
+  const spatial = buildSpatialHash(organisms, CELL_SIZE)
+
   organisms.forEach(org => {
+    // compute local density later via map building
     // Cohesion: head towards average of nearby neighbors
-    const neighbors = organisms.filter(o => o.id !== org.id && Math.hypot(o.position.x - org.position.x, o.position.y - org.position.y) < NEIGHBOR_RADIUS)
+  const neighbors = spatial.query(org.position, NEIGHBOR_RADIUS)
     if (neighbors.length > 0) {
       const avgX = neighbors.reduce((s, n) => s + n.position.x, 0) / neighbors.length
       const avgY = neighbors.reduce((s, n) => s + n.position.y, 0) / neighbors.length
@@ -68,7 +77,7 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
     }
 
     // Escape: if any predator larger than this agent is near, drift away
-    const threats = organisms.filter(o => o.id !== org.id && o.size > org.size * 1.1 && Math.hypot(o.position.x - org.position.x, o.position.y - org.position.y) < NEIGHBOR_RADIUS)
+  const threats = spatial.query(org.position, NEIGHBOR_RADIUS).filter(o => o.size > org.size * 1.1)
     if (threats.length > 0) {
       const threatVecX = threats.reduce((s, t) => s + (org.position.x - t.position.x), 0)
       const threatVecY = threats.reduce((s, t) => s + (org.position.y - t.position.y), 0)
@@ -90,12 +99,13 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
   // Predation: naive O(n^2) collision check (MVP)
   const removedIds = new Set()
   const events = []
+  // For performance, use neighbors from spatial index for collisions
   for (let i = 0; i < organisms.length; i++) {
     const a = organisms[i]
     if (!a || removedIds.has(a.id)) continue
     for (let j = 0; j < organisms.length; j++) {
       if (i === j) continue
-      const b = organisms[j]
+  const b = organisms[j]
       if (!b || removedIds.has(b.id)) continue
       // decide larger predator
       const predator = a.size >= b.size ? a : b
@@ -134,6 +144,36 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
   }
 
   return { removedIds: Array.from(removedIds), events, contactMap }
+}
+
+// Spatial hash helps find neighbors quickly
+function buildSpatialHash(list, cellSize) {
+  const map = new Map()
+  for (const item of list) {
+    const gx = Math.floor(item.position.x / cellSize)
+    const gy = Math.floor(item.position.y / cellSize)
+    const key = gx + ':' + gy
+    if (!map.has(key)) map.set(key, [])
+    map.get(key).push(item)
+  }
+  return {
+    query(pos, radius) {
+      const minX = Math.floor((pos.x - radius) / cellSize)
+      const maxX = Math.floor((pos.x + radius) / cellSize)
+      const minY = Math.floor((pos.y - radius) / cellSize)
+      const maxY = Math.floor((pos.y + radius) / cellSize)
+      const out = []
+      for (let gx = minX; gx <= maxX; gx++) {
+        for (let gy = minY; gy <= maxY; gy++) {
+          const key = gx + ':' + gy
+          if (!map.has(key)) continue
+          for (const o of map.get(key)) out.push(o)
+        }
+      }
+      // filter by exact distance
+      return out.filter(o => Math.hypot(o.position.x - pos.x, o.position.y - pos.y) <= radius)
+    }
+  }
 }
 
 // Evolution: simple heuristic - if organism has high energy and large size and random chance
