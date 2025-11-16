@@ -71,6 +71,9 @@ app.post('/spawn', (req, res) => {
       } else {
         const newOrg = createOrganism(seedTraits)
         organisms.push(newOrg)
+        if (dbPool) {
+          try { await dbPool.query('INSERT INTO organisms (id, data, created_at, updated_at) VALUES ($1,$2,now(),now())', [newOrg.id, JSON.stringify(newOrg)]) } catch(err) { console.error('db spawn err',err) }
+        }
         io.emit('spawn', { organism: newOrg })
         return res.status(201).json({ organism: newOrg })
       }
@@ -96,15 +99,17 @@ app.post('/touch', (req, res) => {
       if (USE_RUST) {
         const resp = await fetch(`${RUST_URL}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x, y, amplitude, sigma }) })
         const parsed = await resp.json()
-        const touch = parsed.touch || parsed
-        TOUCH_EVENTS.push(touch)
-        io.emit('touch', touch)
-        return res.json({ ok: true, touch })
+  const touch = parsed.touch || parsed
+  TOUCH_EVENTS.push(touch)
+  io.emit('touch', touch)
+  if (dbPool) { try { await dbPool.query('INSERT INTO touches (id,x,y,amplitude,sigma,created_at) VALUES ($1,$2,$3,$4,$5,now())', [touch.id, touch.x, touch.y, touch.amplitude, touch.sigma]) } catch (err) { console.error('db touch err', err) } }
+  return res.json({ ok: true, touch })
       } else {
-        const touch = { id: uuidv4(), x, y, amplitude, sigma, createdAt: Date.now() }
-        TOUCH_EVENTS.push(touch)
-        io.emit('touch', touch)
-        return res.json({ ok: true, touch })
+  const touch = { id: uuidv4(), x, y, amplitude, sigma, createdAt: Date.now() }
+  TOUCH_EVENTS.push(touch)
+  io.emit('touch', touch)
+  if (dbPool) { try { await dbPool.query('INSERT INTO touches (id,x,y,amplitude,sigma,created_at) VALUES ($1,$2,$3,$4,$5,now())', [touch.id, touch.x, touch.y, touch.amplitude, touch.sigma]) } catch (err) { console.error('db touch err', err) } }
+  return res.json({ ok: true, touch })
       }
     } catch (err) {
       console.error('touch proxy error', err)
@@ -173,7 +178,21 @@ setInterval(async () => {
       for (let i = 0; i < 4; i++) {
         const res = simulateWorldStep(organisms, TOUCH_EVENTS, 0.25, contactMap)
         if (res && res.events && res.events.length) {
-          res.events.forEach(e => io.emit(e.type, e))
+          for (const e of res.events) {
+            io.emit(e.type, e)
+            // persist predation and evolve to DB if available
+            if (dbPool && e.type === 'predation') {
+              try {
+                await dbPool.query('DELETE FROM organisms WHERE id = $1', [e.victimId])
+                await dbPool.query('UPDATE organisms SET data = $1, updated_at = now() WHERE id = $2', [ JSON.stringify(organisms.find(o=>o.id===e.predatorId) || {}), e.predatorId ])
+              } catch (err) { console.error('db predation persist error', err) }
+            }
+            if (dbPool && e.type === 'evolve') {
+              try {
+                await dbPool.query('UPDATE organisms SET data = $1, updated_at = now() WHERE id = $2', [ JSON.stringify(organisms.find(o=>o.id===e.id) || {}), e.id ])
+              } catch (err) { console.error('db evolve persist error', err) }
+            }
+          }
         }
       }
       const updates = organisms.map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))

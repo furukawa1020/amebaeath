@@ -5,6 +5,12 @@ This workspace contains an MVP for 'Ameba Earth' — front-end in `frontend` (Ne
 Quick start (local):
 
 1. Backend
+Or using Docker Compose (db + backend):
+
+```powershell
+docker compose up --build
+```
+
 
 ```powershell
 cd backend
