@@ -150,23 +150,24 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
       org.velocity.vx += (dx/dist2 || 0) * influence * 0.02
       org.velocity.vy += (dy/dist2 || 0) * influence * 0.02
     }
-    updateOrganism(org, dt, null)
-    org.age = (Date.now() - org.spawnedAt) / 1000
-      // update density map cell for this organism
-      if (worldMaps && worldMaps.densityMap) {
-        const gx = Math.floor(org.position.x / CELL_SIZE)
-        const gy = Math.floor(org.position.y / CELL_SIZE)
-        if (gy >= 0 && gy < GRID_RESOLUTION && gx >= 0 && gx < GRID_RESOLUTION) {
-          worldMaps.densityMap[gy][gx] += 1
-          // animal consumes food from map if available
-          const avail = worldMaps.foodMap[gy][gx]
-          if (avail > 0) {
-            const eaten = Math.min(avail, FOOD_CONSUMPTION_RATE * dt)
-            worldMaps.foodMap[gy][gx] = Math.max(0, avail - eaten)
-            org.energy = Math.min(1, org.energy + eaten * FOOD_ENERGY_GAIN)
-          }
+    // Eat available food from map before movement/energy decay to ensure feeding
+    // gives immediate energy boost even during a step.
+    if (worldMaps && worldMaps.densityMap) {
+      const gx = Math.floor(org.position.x / CELL_SIZE)
+      const gy = Math.floor(org.position.y / CELL_SIZE)
+      if (gy >= 0 && gy < GRID_RESOLUTION && gx >= 0 && gx < GRID_RESOLUTION) {
+        worldMaps.densityMap[gy][gx] += 1
+        const avail = worldMaps.foodMap[gy][gx]
+        if (avail > 0) {
+          const eaten = Math.min(avail, FOOD_CONSUMPTION_RATE * dt)
+          worldMaps.foodMap[gy][gx] = Math.max(0, avail - eaten)
+          org.energy = Math.min(1, org.energy + eaten * FOOD_ENERGY_GAIN)
         }
       }
+    }
+    // Now update movement/energy decay
+    updateOrganism(org, dt, null)
+    org.age = (Date.now() - org.spawnedAt) / 1000
   })
 
   // Predation: naive O(n^2) collision check (MVP)
