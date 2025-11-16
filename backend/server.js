@@ -40,21 +40,41 @@ app.post('/spawn', (req, res) => {
   if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
 
   const seedTraits = req.body.seedTraits || null
-  const newOrg = createOrganism(seedTraits)
-  organisms.push(newOrg)
   spawnCounts[ip][today] += 1
-  io.emit('spawn', { organism: newOrg })
-  res.status(201).json({ organism: newOrg })
+  (async () => {
+    try {
+      const resp = await fetch(`${RUST_URL}/spawn`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seedTraits ? { seedTraits } : {})
+      })
+      const parsed = await resp.json()
+      const newOrg = parsed.organism || parsed
+      organisms.push(newOrg)
+      io.emit('spawn', { organism: newOrg })
+      return res.status(201).json({ organism: newOrg })
+    } catch (err) {
+      console.error('spawn proxy error', err)
+      return res.status(500).json({ error: 'backend spawn failed' })
+    }
+  })()
 })
 
 // REST: POST /touch
 app.post('/touch', (req, res) => {
   const { x, y, amplitude = 0.6, sigma = 30 } = req.body
   if (typeof x !== 'number' || typeof y !== 'number') return res.status(400).json({ error: 'x,y required' })
-  const touch = { id: uuidv4(), x, y, amplitude, sigma, createdAt: Date.now() }
-  TOUCH_EVENTS.push(touch)
-  io.emit('touch', touch)
-  res.json({ ok: true, touch })
+  (async () => {
+    try {
+      const resp = await fetch(`${RUST_URL}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x, y, amplitude, sigma }) })
+      const parsed = await resp.json()
+      const touch = parsed.touch || parsed
+      TOUCH_EVENTS.push(touch)
+      io.emit('touch', touch)
+      return res.json({ ok: true, touch })
+    } catch (err) {
+      console.error('touch proxy error', err)
+      return res.status(500).json({ error: 'backend touch failed' })
+    }
+  })()
 })
 
 function createOrganism(seedTraits) {
