@@ -25,6 +25,7 @@ export default function P5Canvas({ wsUrl }) {
         }
 
   let organisms = []
+  let pulses = []
   let touches = []
 
         socketRef.current = io(wsUrl)
@@ -69,8 +70,9 @@ export default function P5Canvas({ wsUrl }) {
           anime({ targets: o, _scale: [0.4, 1.0], duration: 700, easing: 'easeOutBack' })
         })
         socketRef.current.on('touch', (payload) => {
-          // used for visual pulse; we don't use yet besides storing
-          // could add animation when received
+          // visual pulse
+          const p = { x: payload.x, y: payload.y, amplitude: payload.amplitude || 0.6, createdAt: Date.now() }
+          pulses.push(p)
         })
         socketRef.current.on('predation', (payload) => {
           // payload: { predatorId, victimId, newSize }
@@ -94,6 +96,18 @@ export default function P5Canvas({ wsUrl }) {
         s.draw = () => {
           s.background(12, 18, 24)
           // draw organisms
+          // draw pulses
+          for (let i = pulses.length - 1; i >= 0; i--) {
+            const p = pulses[i]
+            const age = (Date.now() - p.createdAt) / 1000
+            const life = 4 // seconds
+            if (age > life) { pulses.splice(i, 1); continue }
+            const alpha = 200 * (1 - age / life)
+            const rx = s.width * (p.x / 2000)
+            const ry = s.height * (p.y / 2000)
+            s.fill(255, 120, 40, alpha)
+            s.ellipse(rx, ry, p.amplitude * 200 * (1 + age), p.amplitude * 200 * (1 + age))
+          }
           for (const o of organisms) {
             const x = (o.position && o.position.x) || 0
             const y = (o.position && o.position.y) || 0

@@ -15,6 +15,8 @@ Railway (Backend)
 2. デプロイ設定: `backend` ディレクトリを指定、`npm install` と `npm start` をビルドコマンドに設定
 3. 環境変数を設定（DATABASE_URL 等）
 4. Railway Scheduler にて 1 分毎の世界 persist ジョブを設定
+注意（Rust）
+- 速度とスループットを優先する場合は、Rust sim を `backend/rust` にデプロイして Node を `USE_RUST=true` で利用する運用が可能です。Railway では 1 サービスとして Rust をデプロイし、Node は API/Socket 層として動作させることができます。Rust は `actix-web` を使って `GET /state` `POST /spawn` `POST /touch` を提供します。
 
 Netlify (Frontend)
 1. GitHub リポジトリを Netlify に接続
