@@ -62,6 +62,15 @@ app.get('/state', async (req, res) => {
   res.json({ tick, organisms: organisms.map(o => ({ id: o.id, position: o.position, size: o.size, energy: o.energy, state: o.state, dna_layers: o.dna_layers })) })
 })
 
+// lightweight stats endpoint for dashboards
+app.get('/stats', (req, res) => {
+  const total = organisms.length
+  const avgEnergy = total ? organisms.reduce((s,o) => s + (o.energy||0), 0) / total : 0
+  const avgSize = total ? organisms.reduce((s,o) => s + (o.size||0), 0) / total : 0
+  const largest = organisms.slice().sort((a,b)=>b.size-a.size).slice(0,5).map(o => ({ id: o.id, size: o.size }))
+  res.json({ tick, total, avgEnergy, avgSize, largest })
+})
+
 // REST: POST /spawn
 app.post('/spawn', (req, res) => {
   const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown'

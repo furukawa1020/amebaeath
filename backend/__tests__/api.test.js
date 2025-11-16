@@ -31,4 +31,12 @@ describe('API endpoints', () => {
     const res = await request(app).post('/touch').send({ x: 10, y: 10 })
     expect([200,429]).toContain(res.statusCode)
   })
+
+  test('GET /stats returns basic metrics', async () => {
+    const res = await request(app).get('/stats')
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toHaveProperty('total')
+    expect(res.body).toHaveProperty('avgEnergy')
+    expect(res.body).toHaveProperty('avgSize')
+  })
 })
