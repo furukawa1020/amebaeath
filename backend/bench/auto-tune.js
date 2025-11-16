@@ -28,7 +28,13 @@ async function autotune() {
   // find first size where quad faster
   const better = results.find(r => r.quadTime < r.gridTime)
   if (better) {
-    console.log(`Recommend QUADTREE_THRESHOLD <= ${Math.max(1, better.N - 20)}`)
+    const rec = Math.max(1, better.N - 20)
+    console.log(`Recommend QUADTREE_THRESHOLD <= ${rec}`)
+    // persist recommendation to config file
+    const conf = { threshold: rec, maxObjects: parseInt(process.env.QUADTREE_MAX_OBJECTS || '8'), maxLevel: parseInt(process.env.QUADTREE_MAX_LEVEL || '6') }
+    const p = require('path').join(__dirname, '..', 'config', 'quadtree.json')
+    require('fs').writeFileSync(p, JSON.stringify(conf, null, 2), 'utf8')
+    console.log('Written recommended config to', p)
   } else {
     console.log('Quadtree not advantageous for these sizes; recommend higher threshold')
   }

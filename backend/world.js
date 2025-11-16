@@ -16,9 +16,15 @@ const CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
 const TEMPERATURE_DECAY = 0.01 // per step
 const FOOD_DECAY = 0.001
 // Quadtree tuning - adjust via env vars if needed
-const QUADTREE_THRESHOLD = parseInt(process.env.QUADTREE_THRESHOLD || '128')
-const QUADTREE_MAX_OBJECTS = parseInt(process.env.QUADTREE_MAX_OBJECTS || '8')
-const QUADTREE_MAX_LEVEL = parseInt(process.env.QUADTREE_MAX_LEVEL || '6')
+const fs = require('fs')
+const path = require('path')
+// quadtree config source: env vars override file
+const qcPath = path.join(__dirname, 'config', 'quadtree.json')
+let qc = { threshold: 128, maxObjects: 8, maxLevel: 6 }
+try { if (fs.existsSync(qcPath)) qc = JSON.parse(fs.readFileSync(qcPath, 'utf8')) } catch (e) { console.error('read quadtree config err', e) }
+const QUADTREE_THRESHOLD = process.env.QUADTREE_THRESHOLD ? parseInt(process.env.QUADTREE_THRESHOLD) : qc.threshold
+const QUADTREE_MAX_OBJECTS = process.env.QUADTREE_MAX_OBJECTS ? parseInt(process.env.QUADTREE_MAX_OBJECTS) : qc.maxObjects
+const QUADTREE_MAX_LEVEL = process.env.QUADTREE_MAX_LEVEL ? parseInt(process.env.QUADTREE_MAX_LEVEL) : qc.maxLevel
 const FOOD_CONSUMPTION_RATE = 0.02 // how much food removed per second when feeding
 const FOOD_ENERGY_GAIN = 0.06
 const MIN_SURVIVAL_ENERGY = 0.02
