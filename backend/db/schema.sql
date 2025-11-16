@@ -26,5 +26,13 @@ CREATE TABLE IF NOT EXISTS touches (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS spawn_counts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ip inet NOT NULL,
+  day date NOT NULL,
+  count int NOT NULL DEFAULT 0,
+  UNIQUE(ip, day)
+);
+
 -- Extensions recommended
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

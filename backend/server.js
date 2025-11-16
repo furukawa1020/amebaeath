@@ -93,11 +93,27 @@ app.post('/config/quadtree', (req, res) => {
 
 // REST: POST /spawn
 app.post('/spawn', (req, res) => {
-  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown'
+  const ip = (req.ip || req.headers['x-forwarded-for'] || 'unknown')
   const today = new Date().toISOString().slice(0,10)
-  spawnCounts[ip] = spawnCounts[ip] || {}
-  spawnCounts[ip][today] = spawnCounts[ip][today] || 0
-  if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
+  // server-side persistent rate-limit (when db present)
+  (async () => {
+    try {
+      if (dbPool) {
+        // try to increment atomically
+        const sql = `INSERT INTO spawn_counts (ip, day, count) VALUES ($1, $2, 1)
+          ON CONFLICT (ip, day) DO UPDATE SET count = spawn_counts.count + 1
+          RETURNING count`;
+        const result = await dbPool.query(sql, [ip, today])
+        if (result && result.rows && result.rows[0] && result.rows[0].count > 1) {
+          return res.status(429).json({ error: 'spawn limit reached for today (db)' })
+        }
+      } else {
+        // fallback to in-memory
+        spawnCounts[ip] = spawnCounts[ip] || {}
+        spawnCounts[ip][today] = spawnCounts[ip][today] || 0
+        if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
+        spawnCounts[ip][today] += 1
+      }
 
   const seedTraits = req.body.seedTraits || null
   spawnCounts[ip][today] += 1
