@@ -6,6 +6,9 @@ export default function P5Canvas({ wsUrl }) {
   const canvasRef = useRef(null)
   const socketRef = useRef(null)
   const [showFood, setShowFood] = useState(false)
+  const showFoodRef = useRef(false)
+
+  useEffect(() => { showFoodRef.current = showFood }, [showFood])
 
   useEffect(() => {
     let p5Instance = null
@@ -136,7 +139,7 @@ export default function P5Canvas({ wsUrl }) {
             }
           }
           // option: draw food map overlay in green
-          if (showFood && maps && maps.foodMap) {
+          if (showFoodRef.current && maps && maps.foodMap) {
             const grid = maps.foodMap
             const rows = grid.length
             const cols = grid[0]?.length || 0
@@ -250,5 +253,12 @@ export default function P5Canvas({ wsUrl }) {
     }
   }, [wsUrl])
 
-  return <div ref={canvasRef} style={{ width: '100%', height: '100%' }} />
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div ref={canvasRef} style={{ width: '100%', height: '100%' }} />
+        <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000 }}>
+          <button onClick={() => setShowFood(s => !s)} style={{ padding: '8px 10px', borderRadius: 6 }}>{showFood ? 'Hide Food' : 'Show Food'}</button>
+        </div>
+      </div>
+    )
 }

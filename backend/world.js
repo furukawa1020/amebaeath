@@ -265,6 +265,7 @@ class QuadtreeNode {
 
 function buildQuadtree(list, worldSize) {
   const q = new QuadtreeNode(0,0,worldSize,worldSize,0,QUADTREE_MAX_LEVEL,QUADTREE_MAX_OBJECTS)
+  q._isQuadtree = true
   for (const item of list) q.insert(item)
   return q
 }
@@ -347,6 +348,7 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
       return results
     }
   }
+  , _isQuadtree: false
 }
 
 // Always build a pure grid index (for benchmarking/comparison)
