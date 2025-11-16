@@ -39,3 +39,4 @@ tmp/
 # Misc
 *.tgz
 *.swp
+Makefile
