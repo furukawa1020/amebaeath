@@ -126,8 +126,8 @@ app.post('/spawn', async (req, res) => {
       }
   console.log('spawn allowed, calling spawn logic')
 
-      const seedTraits = req.body.seedTraits || null
-      if (USE_RUST) {
+  const seedTraits = req.body.seedTraits || null
+  if (USE_RUST) {
         const resp = await fetch(`${RUST_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seedTraits }) })
         const parsed = await resp.json()
         const newOrg = parsed.organism || parsed
@@ -142,9 +142,7 @@ app.post('/spawn', async (req, res) => {
         io.emit('spawn', { organism: newOrg })
         return res.status(201).json({ organism: newOrg })
       }
-    console.log('spawn allowed, calling spawn logic')
-    const seedTraits = req.body.seedTraits || null
-    if (USE_RUST) {
+    // removed duplicate block
       const resp = await fetch(`${RUST_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seedTraits }) })
       const parsed = await resp.json()
       const newOrg = parsed.organism || parsed
@@ -158,7 +156,7 @@ app.post('/spawn', async (req, res) => {
       }
       io.emit('spawn', { organism: newOrg })
       return res.status(201).json({ organism: newOrg })
-    }
+  }
   } catch (err) {
     console.error('spawn proxy error', err)
     return res.status(500).json({ error: 'backend spawn failed' })
