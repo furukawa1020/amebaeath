@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-  "start:rust": "cd rust && cargo run",
+    "start:rust": "cd rust && cargo run",
+    "start:all": "concurrently \"npm:run start:rust\" \"npm start\"",
     "test": "jest"
   },
   "dependencies": {
@@ -18,7 +19,8 @@
   ,
   "devDependencies": {
     "jest": "^29.7.0",
-    "supertest": "^6.3.3"
+    "supertest": "^6.4.3",
+    "concurrently": "^8.0.1"
   }
   ,
   "scripts": {
