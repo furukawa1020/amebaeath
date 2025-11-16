@@ -27,6 +27,7 @@ const USE_RUST = process.env.USE_RUST === 'true'
 
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
 const spawnCounts = {}
+const touchCounts = {}
 
 // REST: GET /state
 app.get('/state', async (req, res) => {
@@ -77,6 +78,12 @@ app.post('/spawn', (req, res) => {
 app.post('/touch', (req, res) => {
   const { x, y, amplitude = 0.6, sigma = 30 } = req.body
   if (typeof x !== 'number' || typeof y !== 'number') return res.status(400).json({ error: 'x,y required' })
+  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown'
+  const tnow = Date.now()
+  touchCounts[ip] = touchCounts[ip] || []
+  touchCounts[ip] = touchCounts[ip].filter(ts => tnow - ts < 60000)
+  if (touchCounts[ip].length > 60) return res.status(429).json({ error: 'touch rate limit exceeded' })
+  touchCounts[ip].push(tnow)
   (async () => {
     try {
       if (USE_RUST) {
