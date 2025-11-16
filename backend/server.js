@@ -24,6 +24,18 @@ let organisms = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'))
 let tick = 0
 const TOUCH_EVENTS = []
 let contactMap = {}
+// world maps (temperature/food/density) - used for climate and visualization
+function makeEmptyGrid(res) {
+  const grid = []
+  for (let y = 0; y < res; y++) grid.push(Array.from({length: res}, () => 0))
+  return grid
+}
+const GRID_RESOLUTION = 200
+const worldMaps = {
+  temperatureMap: makeEmptyGrid(GRID_RESOLUTION),
+  foodMap: makeEmptyGrid(GRID_RESOLUTION),
+  densityMap: makeEmptyGrid(GRID_RESOLUTION)
+}
 
 const RUST_URL = process.env.RUST_URL || 'http://localhost:4001'
 const USE_RUST = process.env.USE_RUST === 'true'
@@ -173,10 +185,10 @@ setInterval(async () => {
       const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
       organisms = (parsed.organisms || []).map(o => ({ ...o }))
       io.emit('tick', { tick, updates })
-    } else {
+  } else {
       // run local simulation steps
       for (let i = 0; i < 4; i++) {
-        const res = simulateWorldStep(organisms, TOUCH_EVENTS, 0.25, contactMap)
+  const res = simulateWorldStep(organisms, TOUCH_EVENTS, 0.25, contactMap, worldMaps)
         if (res && res.events && res.events.length) {
           for (const e of res.events) {
             io.emit(e.type, e)
@@ -196,7 +208,7 @@ setInterval(async () => {
         }
       }
       const updates = organisms.map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
-      io.emit('tick', { tick, updates })
+      io.emit('tick', { tick, updates, maps: worldMaps })
     }
   } catch (e) {
     console.error('tick loop error', e && e.stack ? e.stack : e.toString())
@@ -207,7 +219,7 @@ setInterval(async () => {
 setInterval(async () => {
   if (!dbPool) return
   try {
-    await dbPool.query('INSERT INTO world_state (tick, temperature_map, food_map, density_map, last_tick_at) VALUES ($1,$2,$3,$4,NOW())', [tick, JSON.stringify({}), JSON.stringify({}), JSON.stringify({})])
+  await dbPool.query('INSERT INTO world_state (tick, temperature_map, food_map, density_map, last_tick_at) VALUES ($1,$2,$3,$4,NOW())', [tick, JSON.stringify(worldMaps.temperatureMap), JSON.stringify(worldMaps.foodMap), JSON.stringify(worldMaps.densityMap)])
   } catch (e) {
     console.error('persist error', e)
   }

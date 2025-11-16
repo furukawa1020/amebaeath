@@ -67,4 +67,23 @@ describe('World simulation', () => {
     expect(pred.size).toBeGreaterThan(2)
     expect(pred.dna_layers).toContain('#123')
   })
+
+  test('temperature map increases with touch events', () => {
+    const organisms = [
+      { id: 'o1', position: { x: 100, y: 100 }, velocity: { vx: 0, vy: 0 }, size: 1.0, metaballs: [], traits: {}, dna_layers: ['#fff'], energy: 1.0, state: 'normal', spawnedAt: Date.now(), lastUpdated: Date.now() }
+    ]
+    const worldMaps = {
+      temperatureMap: Array.from({length: 200}, () => Array(200).fill(0)),
+      foodMap: Array.from({length: 200}, () => Array(200).fill(0)),
+      densityMap: Array.from({length: 200}, () => Array(200).fill(0))
+    }
+    const touch = { id: 't1', x: 110, y: 110, amplitude: 0.7, sigma: 20, createdAt: Date.now() }
+    expect(worldMaps.temperatureMap[11][11]).toBe(0)
+    const res = simulateWorldStep(organisms, [touch], 0.25, {}, worldMaps)
+    expect(res.maps).toBeDefined()
+    // after step some cell near the touch has value > 0
+    const gx = Math.floor(touch.x / (2000/200))
+    const gy = Math.floor(touch.y / (2000/200))
+    expect(worldMaps.temperatureMap[gy][gx]).toBeGreaterThan(0)
+  })
 })

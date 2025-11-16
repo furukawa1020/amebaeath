@@ -54,7 +54,7 @@ function updateOrganism(org, dt, world) {
   org.lastUpdated = Date.now()
 }
 
-function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
+function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMaps = null) {
   // For MVP: apply very light temperature attraction: organisms drift toward recent touches
   const heat = touchEvents.length ? touchEvents[touchEvents.length-1] : null
   // contact times for predation: map keys 'predatorId:victimId'
@@ -62,6 +62,31 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
 
   // spatial hash for neighbor queries
   const spatial = buildSpatialHash(organisms, CELL_SIZE)
+
+  // climate maps updates
+  if (worldMaps && worldMaps.temperatureMap) {
+    // decay all cells slightly
+    for (let gy = 0; gy < GRID_RESOLUTION; gy++) for (let gx = 0; gx < GRID_RESOLUTION; gx++) {
+      worldMaps.temperatureMap[gy][gx] = Math.max(0, worldMaps.temperatureMap[gy][gx] - TEMPERATURE_DECAY * dt)
+      worldMaps.foodMap[gy][gx] = Math.max(0, worldMaps.foodMap[gy][gx] - FOOD_DECAY * dt)
+      worldMaps.densityMap[gy][gx] = 0
+    }
+    // apply touches as gaussian distributed heat
+    for (const t of touchEvents) {
+      for (let gy = 0; gy < GRID_RESOLUTION; gy++) {
+        for (let gx = 0; gx < GRID_RESOLUTION; gx++) {
+          const cx = gx * CELL_SIZE + CELL_SIZE / 2
+          const cy = gy * CELL_SIZE + CELL_SIZE / 2
+          const dx = cx - t.x
+          const dy = cy - t.y
+          const dist2 = dx*dx + dy*dy
+          const sigma = t.sigma || 30
+          const influence = (t.amplitude || 0.6) * Math.exp(-dist2/(2*sigma*sigma))
+          worldMaps.temperatureMap[gy][gx] += influence * dt
+        }
+      }
+    }
+  }
 
   organisms.forEach(org => {
     // compute local density later via map building
@@ -94,6 +119,14 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
     }
     updateOrganism(org, dt, null)
     org.age = (Date.now() - org.spawnedAt) / 1000
+      // update density map cell for this organism
+      if (worldMaps && worldMaps.densityMap) {
+        const gx = Math.floor(org.position.x / CELL_SIZE)
+        const gy = Math.floor(org.position.y / CELL_SIZE)
+        if (gy >= 0 && gy < GRID_RESOLUTION && gx >= 0 && gx < GRID_RESOLUTION) {
+          worldMaps.densityMap[gy][gx] += 1
+        }
+      }
   })
 
   // Predation: naive O(n^2) collision check (MVP)
@@ -143,7 +176,7 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
     }
   }
 
-  return { removedIds: Array.from(removedIds), events, contactMap }
+  return { removedIds: Array.from(removedIds), events, contactMap, maps: worldMaps }
 }
 
 // Spatial hash helps find neighbors quickly

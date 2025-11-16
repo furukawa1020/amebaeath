@@ -46,6 +46,7 @@ export default function P5Canvas({ wsUrl }) {
         })
         socketRef.current.on('tick', (payload) => {
           const updates = payload.updates || []
+          if (payload.maps) maps = payload.maps
           updates.forEach(u => {
             const i = organisms.findIndex(x => x.id === u.id)
             if (i >= 0) {
@@ -112,6 +113,27 @@ export default function P5Canvas({ wsUrl }) {
 
         s.draw = () => {
           s.background(12, 18, 24)
+          // draw heatmap if available
+          if (maps && maps.temperatureMap) {
+            const grid = maps.temperatureMap
+            const rows = grid.length
+            const cols = grid[0]?.length || 0
+            for (let gy=0; gy<rows; gy++) {
+              for (let gx=0; gx<cols; gx++) {
+                const val = grid[gy][gx]
+                if (!val || val <= 0) continue
+                const alpha = Math.min(220, Math.round(200 * Math.min(1, val)))
+                // heat color: blue -> yellow -> red
+                const r = Math.min(255, Math.round(255 * val))
+                const g = Math.max(0, Math.min(255, Math.round(255*(1-val))))
+                s.noStroke()
+                s.fill(r, g, 60, alpha)
+                const cx = s.width * (gx / cols)
+                const cy = s.height * (gy / rows)
+                s.rect(cx, cy, s.width/cols+1, s.height/rows+1)
+              }
+            }
+          }
           // draw organisms
           // draw pulses
           for (let i = pulses.length - 1; i >= 0; i--) {
