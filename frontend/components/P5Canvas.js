@@ -6,6 +6,7 @@ export default function P5Canvas({ wsUrl }) {
   const canvasRef = useRef(null)
   const socketRef = useRef(null)
   const [showFood, setShowFood] = useState(false)
+  const [smoothMetaballs, setSmoothMetaballs] = useState(false)
   const showFoodRef = useRef(false)
 
   useEffect(() => { showFoodRef.current = showFood }, [showFood])
@@ -115,7 +116,66 @@ export default function P5Canvas({ wsUrl }) {
             .then(r => r.json()).then(d => console.log('touch', d)).catch(e=>console.error(e))
         }
 
-  s.draw = () => {
+        // Simple marching squares implementation for metaball smoothing
+        function computeField(orgs, cols, rows) {
+          const grid = Array.from({length: rows+1}, () => Array(cols+1).fill(0))
+          for (let gy = 0; gy <= rows; gy++) {
+            for (let gx = 0; gx <= cols; gx++) {
+              const x = (gx / cols) * 2000
+              const y = (gy / rows) * 2000
+              let val = 0
+              for (const o of orgs) {
+                const balls = o.metaballs || []
+                for (const b of balls) {
+                  const bx = (o.position.x + b[0])
+                  const by = (o.position.y + b[1])
+                  const r = b[2]
+                  const dx = x - bx
+                  const dy = y - by
+                  val += Math.exp(-(dx*dx + dy*dy)/(r*r*2))
+                }
+              }
+              grid[gy][gx] = val
+            }
+          }
+          return grid
+        }
+
+        function marchingSquares(grid, cols, rows, threshold) {
+          const polys = []
+          const lerp = (a,b,t) => ({x:a.x + (b.x-a.x)*t, y:a.y + (b.y-a.y)*t})
+          const corners = [[0,0],[1,0],[1,1],[0,1]]
+          for (let gy=0; gy<rows; gy++) {
+            for (let gx=0; gx<cols; gx++) {
+              const tl = grid[gy][gx]
+              const tr = grid[gy][gx+1]
+              const br = grid[gy+1][gx+1]
+              const bl = grid[gy+1][gx]
+              const idx = (tl>threshold?1:0) | (tr>threshold?2:0) | (br>threshold?4:0) | (bl>threshold?8:0)
+              if (idx === 0 || idx === 15) continue
+              const x0 = (gx/cols) * s.width
+              const y0 = (gy/rows) * s.height
+              const x1 = ((gx+1)/cols) * s.width
+              const y1 = ((gy+1)/rows) * s.height
+              const top = {x: x0 + (x1-x0) * ((threshold - tl)/(tr - tl + 1e-9)), y: y0}
+              const right = {x: x1, y: y0 + (y1-y0) * ((threshold - tr)/(br - tr + 1e-9))}
+              const bottom = {x: x0 + (x1-x0) * ((threshold - bl)/(br - bl + 1e-9)), y: y1}
+              const left = {x: x0, y: y0 + (y1-y0) * ((threshold - tl)/(bl - tl + 1e-9))}
+              const segs = {
+                1: [left, top], 2: [top, right], 3: [left, right], 4: [right, bottom],
+                5: [left, bottom, right, top], 6: [top, bottom], 7: [left, bottom],
+                8: [bottom, left], 9: [bottom, top], 10: [top, right, bottom, left],
+                11: [top, right], 12: [right, left], 13: [top, left], 14: [right, left]
+              }[idx]
+              if (segs) {
+                polys.push(segs)
+              }
+            }
+          }
+          return polys
+        }
+
+        s.draw = () => {
           s.background(12, 18, 24)
           // draw heatmap if available
           if (maps && maps.temperatureMap) {
@@ -169,6 +229,19 @@ export default function P5Canvas({ wsUrl }) {
             s.fill(255, 120, 40, alpha)
             s.ellipse(rx, ry, p.amplitude * 200 * (1 + age), p.amplitude * 200 * (1 + age))
           }
+          if (smoothMetaballs && organisms.length) {
+            const cols = 60; const rows = 40
+            const field = computeField(organisms, cols, rows)
+            const polys = marchingSquares(field, cols, rows, 0.5)
+            s.noStroke()
+            s.fill(200, 140, 255, 180)
+            for (const poly of polys) {
+              s.beginShape()
+              for (const v of poly) s.vertex(v.x, v.y)
+              s.endShape(s.CLOSE)
+            }
+          }
+
           for (const o of organisms) {
             const x = (o.position && o.position.x) || 0
             const y = (o.position && o.position.y) || 0
@@ -256,8 +329,9 @@ export default function P5Canvas({ wsUrl }) {
     return (
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         <div ref={canvasRef} style={{ width: '100%', height: '100%' }} />
-        <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000 }}>
+        <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000, display: 'flex', gap: 8 }}>
           <button onClick={() => setShowFood(s => !s)} style={{ padding: '8px 10px', borderRadius: 6 }}>{showFood ? 'Hide Food' : 'Show Food'}</button>
+          <button onClick={() => setSmoothMetaballs(s => !s)} style={{ padding: '8px 10px', borderRadius: 6 }}>{smoothMetaballs ? 'Circle Mode' : 'Smooth Mode'}</button>
         </div>
       </div>
     )
