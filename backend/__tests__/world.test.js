@@ -102,7 +102,9 @@ describe('World simulation', () => {
     expect(worldMaps.foodMap[gy][gx]).toBeLessThan(1.0)
     expect(org.energy).toBeGreaterThan(0.2)
     // now deplete energy and force expire
-    org.energy = 0.01
+  org.energy = 0.0
+  // remove food so organism cannot feed
+  worldMaps.foodMap[gy][gx] = 0
     const res2 = simulateWorldStep([org], [], 1.0, {}, worldMaps)
     expect(res2.events.some(e => e.type === 'expired')).toBeTruthy()
   })

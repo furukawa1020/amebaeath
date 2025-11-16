@@ -103,9 +103,18 @@ app.post('/spawn', (req, res) => {
         const sql = `INSERT INTO spawn_counts (ip, day, count) VALUES ($1, $2, 1)
           ON CONFLICT (ip, day) DO UPDATE SET count = spawn_counts.count + 1
           RETURNING count`;
-        const result = await dbPool.query(sql, [ip, today])
-        if (result && result.rows && result.rows[0] && result.rows[0].count > 1) {
-          return res.status(429).json({ error: 'spawn limit reached for today (db)' })
+        try {
+          const result = await dbPool.query(sql, [ip, today])
+          if (result && result.rows && result.rows[0] && result.rows[0].count > 1) {
+            return res.status(429).json({ error: 'spawn limit reached for today (db)' })
+          }
+        } catch (dbErr) {
+          // fallback to in-memory if DB not available or schema missing
+          console.error('db spawn count upsert err, falling back to in-memory', dbErr)
+          spawnCounts[ip] = spawnCounts[ip] || {}
+          spawnCounts[ip][today] = spawnCounts[ip][today] || 0
+          if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
+          spawnCounts[ip][today] += 1
         }
       } else {
         // fallback to in-memory
