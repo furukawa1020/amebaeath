@@ -105,7 +105,7 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
       const dy = predator.position.y - victim.position.y
       const dist2 = dx*dx + dy*dy
       const minDist = (predator.size + victim.size) * HITBOX_SCALE
-      if (dist2 <= minDist*minDist && predator.size > victim.size * 1.05) {
+    if (dist2 <= minDist*minDist && predator.size > victim.size * 1.05) {
         const key = predator.id + ':' + victim.id
   contactTimes[key] = (contactTimes[key] || 0) + dt
         if (contactTimes[key] >= PREDATION_CONTACT_TIME) {
@@ -120,6 +120,10 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
       }
     }
   }
+  // evolution pass
+  for (const org of organisms) {
+    tryEvolution(org, events)
+  }
 
   // filter organisms array to remove victims
   if (removedIds.size > 0) {
@@ -130,6 +134,22 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}) {
   }
 
   return { removedIds: Array.from(removedIds), events, contactMap }
+}
+
+// Evolution: simple heuristic - if organism has high energy and large size and random chance
+function tryEvolution(org, events) {
+  // guard rails
+  if (!org || !org.traits) return
+  if (org.age < 20) return
+  if (Math.random() > 0.0007) return
+  // mutate: add a metaball and shift traits slightly
+  const extra = { x: Math.random()*10 - 5, y: Math.random()*10 - 5, r: 6 + Math.random()*6 }
+  org.metaballs.push([extra.x, extra.y, extra.r])
+  org.traits.cohesion = clamp(org.traits.cohesion + (Math.random()-0.5)*0.05, 0, 1)
+  org.traits.escape = clamp(org.traits.escape + (Math.random()-0.5)*0.05, 0, 1)
+  // evolve eye state
+  org.state = 'evolved'
+  events.push({ type: 'evolve', id: org.id, traits: org.traits })
 }
 
 module.exports = { updateOrganism, simulateWorldStep }

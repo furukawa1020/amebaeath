@@ -85,6 +85,15 @@ export default function P5Canvas({ wsUrl }) {
             if (vicIdx >= 0) organisms.splice(vicIdx, 1)
           } catch (e) { console.error('predation handling', e) }
         })
+        socketRef.current.on('evolve', (payload) => {
+          const id = payload.id
+          const o = organisms.find(x => x.id === id)
+          if (o) {
+            o.state = 'evolved'
+            // small glow/tween
+            anime({ targets: o, _scale: [1, 1.2, 1], duration: 700, easing: 'easeOutExpo' })
+          }
+        })
 
         s.mouseClicked = () => {
           const api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
