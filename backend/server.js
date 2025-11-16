@@ -93,7 +93,7 @@ app.post('/config/quadtree', (req, res) => {
 
 // REST: POST /spawn
 app.post('/spawn', (req, res) => {
-  const ip = (req.ip || req.headers['x-forwarded-for'] || 'unknown')
+  const ip = (req.headers['x-forwarded-for'] || req.ip || 'unknown')
   const today = new Date().toISOString().slice(0,10)
   // server-side persistent rate-limit (when db present)
   (async () => {

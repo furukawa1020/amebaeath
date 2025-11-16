@@ -36,8 +36,8 @@ function saveQuadtreeConfig(conf) {
 }
 
 function reloadQuadtreeConfig() { try { if (fs.existsSync(qcPath)) { qc = JSON.parse(fs.readFileSync(qcPath,'utf8')); if (!process.env.QUADTREE_THRESHOLD) QUADTREE_THRESHOLD = qc.threshold; if (!process.env.QUADTREE_MAX_OBJECTS) QUADTREE_MAX_OBJECTS = qc.maxObjects; if (!process.env.QUADTREE_MAX_LEVEL) QUADTREE_MAX_LEVEL = qc.maxLevel } } catch(e){console.error('reload quadtree err',e)} }
-const FOOD_CONSUMPTION_RATE = 0.02 // how much food removed per second when feeding
-const FOOD_ENERGY_GAIN = 0.06
+const FOOD_CONSUMPTION_RATE = 0.6 // how much food removed per second when feeding
+const FOOD_ENERGY_GAIN = 0.5
 const MIN_SURVIVAL_ENERGY = 0.02
 const MIN_SIZE = 0.15
 
@@ -316,7 +316,9 @@ function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
           const res = q.query(p, radius)
           for (const o of res) found.set(o.id, o)
         }
-        return Array.from(found.values())
+        const o = { query: (pos, radius) => q.query(pos, radius) }
+        o._isQuadtree = true
+        return { query: o.query, _isQuadtree: true }
       }
     }
   }
