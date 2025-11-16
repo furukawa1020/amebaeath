@@ -176,7 +176,10 @@ io.on('connection', (socket) => {
 })
 
 // World loop: fetch authoritative state from Rust simulation and broadcast
-setInterval(async () => {
+let tickInterval = null
+function startWorldLoop() {
+  if (tickInterval) return
+  tickInterval = setInterval(async () => {
   tick += 1
   try {
     if (USE_RUST) {
@@ -215,24 +218,45 @@ setInterval(async () => {
   } catch (e) {
     console.error('tick loop error', e && e.stack ? e.stack : e.toString())
   }
-}, 1000)
+  }, 1000)
+}
+
+function stopWorldLoop() {
+  if (!tickInterval) return
+  clearInterval(tickInterval)
+  tickInterval = null
+}
 
 // persist to DB every minute
-setInterval(async () => {
+let persistInterval = null
+function startPersistLoop() {
+  if (persistInterval) return
+  persistInterval = setInterval(async () => {
   if (!dbPool) return
   try {
   await dbPool.query('INSERT INTO world_state (tick, temperature_map, food_map, density_map, last_tick_at) VALUES ($1,$2,$3,$4,NOW())', [tick, JSON.stringify(worldMaps.temperatureMap), JSON.stringify(worldMaps.foodMap), JSON.stringify(worldMaps.densityMap)])
   } catch (e) {
     console.error('persist error', e)
   }
-}, 60 * 1000)
+  }, 60 * 1000)
+}
+
+function stopPersistLoop() {
+  if (!persistInterval) return
+  clearInterval(persistInterval)
+  persistInterval = null
+}
 
 const PORT = process.env.PORT || 3001
 if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`Ameba Earth backend listening on ${PORT}`)
   })
+  // start loops only for real server runs
+  startWorldLoop()
+  startPersistLoop()
 }
 
 // export app for unit testing
-module.exports = { app };
+// export app and loop control to allow tests to configure environment
+module.exports = { app, startWorldLoop, stopWorldLoop, startPersistLoop, stopPersistLoop };

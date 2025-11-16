@@ -27,7 +27,7 @@ describe('API endpoints', () => {
     // make base calls under limit
     await seq(10)
     // hit limit over 60
-    await seq(61)
+  await seq(61)
     const res = await request(app).post('/touch').send({ x: 10, y: 10 })
     expect([200,429]).toContain(res.statusCode)
   })
