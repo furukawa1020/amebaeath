@@ -242,6 +242,61 @@ function buildQuadtree(list, worldSize) {
   return q
 }
 
+// Spatial hash: choose simple grid-based hash for small n, Quadtree for larger n
+function buildSpatialHash(list, cellSize, worldSize = WORLD_SIZE) {
+  if (!Array.isArray(list)) return { query: () => [] }
+  // use quadtree for larger numbers to reduce overhead
+  if (list.length > 128) {
+    const q = buildQuadtree(list, worldSize)
+    return { query: (pos, radius) => q.query(pos, radius) }
+  }
+
+  // grid-based index
+  const grid = new Map()
+  const insert = (obj) => {
+    const gx = Math.floor(obj.position.x / cellSize)
+    const gy = Math.floor(obj.position.y / cellSize)
+    const key = gx + ':' + gy
+    if (!grid.has(key)) grid.set(key, [])
+    grid.get(key).push(obj)
+  }
+  for (const o of list) insert(o)
+
+  return {
+    query: (pos, radius) => {
+      const minX = Math.floor((pos.x - radius) / cellSize)
+      const maxX = Math.floor((pos.x + radius) / cellSize)
+      const minY = Math.floor((pos.y - radius) / cellSize)
+      const maxY = Math.floor((pos.y + radius) / cellSize)
+      const results = []
+      const seen = new Set()
+      for (let gx = minX; gx <= maxX; gx++) {
+        for (let gy = minY; gy <= maxY; gy++) {
+          const key = gx + ':' + gy
+          const bucket = grid.get(key)
+          if (!bucket) continue
+          for (const obj of bucket) {
+            if (seen.has(obj.id)) continue
+            const dx = obj.position.x - pos.x
+            const dy = obj.position.y - pos.y
+            if (dx*dx + dy*dy <= radius*radius) {
+              results.push(obj)
+              seen.add(obj.id)
+            }
+          }
+        }
+      }
+      return results
+    }
+  }
+}
+
+// Add a friendly query API onto the Quadtree
+QuadtreeNode.prototype.query = function(pos, radius) {
+  const range = { x: pos.x - radius, y: pos.y - radius, w: radius*2, h: radius*2 }
+  return this.queryRange(range)
+}
+
 // Evolution: simple heuristic - if organism has high energy and large size and random chance
 function tryEvolution(org, events) {
   // guard rails
