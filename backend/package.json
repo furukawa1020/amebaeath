@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+  "start:rust": "cd rust && cargo run",
     "test": "jest"
   },
   "dependencies": {

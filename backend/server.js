@@ -7,8 +7,6 @@ const path = require('path')
 const { v4: uuidv4 } = require('uuid')
 const { updateOrganism, simulateWorldStep } = require('./world')
 const fetch = require('node-fetch')
-const fetch = require('node-fetch')
-const RUST_URL = process.env.RUST_URL || 'http://localhost:8081'
 
 const app = express()
 app.use(cors())
