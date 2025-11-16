@@ -22,8 +22,5 @@
     "supertest": "^6.4.3",
     "concurrently": "^8.0.1"
   }
-  ,
-  "scripts": {
-    "start:all": "concurrently \"npm:setup-rust\" \"npm start\""
-  }
+ 
 }
