@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import io from 'socket.io-client'
+import anime from 'animejs/lib/anime.es.js'
 
 export default function P5Canvas({ wsUrl }) {
   const canvasRef = useRef(null)
@@ -29,6 +30,8 @@ export default function P5Canvas({ wsUrl }) {
         socketRef.current = io(wsUrl)
         socketRef.current.on('init', (data) => {
           organisms = data.organisms || []
+          // initialize local visual state
+          organisms.forEach((o, idx) => { o._scale = 1; o._blinkTimer = 0 })
         })
         socketRef.current.on('touch', (data) => {
           // touch data: {x,y,amplitude,sigma}
@@ -50,16 +53,34 @@ export default function P5Canvas({ wsUrl }) {
             } else {
               organisms.push({ id: u.id, position: u.position, size: u.size })
             }
+            // animate breathing using anime.js on update
+            const target = organisms.find(x => x.id === u.id)
+            if (target) {
+              anime.remove(target)
+              anime({ targets: target, _scale: [1.0, 1.06, 1.0], duration: 900, easing: 'easeInOutSine' })
+            }
           })
         })
         socketRef.current.on('spawn', (payload) => {
           const o = payload.organism
           if (!o) return
           organisms.push(o)
+          o._scale = 1
+          anime({ targets: o, _scale: [0.4, 1.0], duration: 700, easing: 'easeOutBack' })
         })
         socketRef.current.on('touch', (payload) => {
           // used for visual pulse; we don't use yet besides storing
           // could add animation when received
+        })
+        socketRef.current.on('predation', (payload) => {
+          // payload: { predatorId, victimId, newSize }
+          try {
+            const { predatorId, victimId, newSize } = payload
+            const pred = organisms.find(o => o.id === predatorId)
+            const vicIdx = organisms.findIndex(o => o.id === victimId)
+            if (pred && typeof newSize === 'number') pred.size = newSize
+            if (vicIdx >= 0) organisms.splice(vicIdx, 1)
+          } catch (e) { console.error('predation handling', e) }
         })
 
         s.mouseClicked = () => {
@@ -80,6 +101,8 @@ export default function P5Canvas({ wsUrl }) {
             const sx = (x / 2000) * s.width
             const sy = (y / 2000) * s.height
             s.fill(200, 150, 220, 180)
+            const scale = o._scale || 1
+            s.ellipse(sx, sy, (o.size || 1) * 24 * scale, (o.size || 1) * 24 * scale)
             // draw DNA layers as concentric colored rings
             if (o.dna_layers && o.dna_layers.length) {
               const layers = o.dna_layers.slice().reverse()

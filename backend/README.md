@@ -16,9 +16,14 @@
 - POST /touch → タッチイベント（x,y,amplitude,sigma）
 
 WebSocket (socket.io):
-- namespace: default
-- events: init (snapshot), tick (updates), spawn, touch
 
-注意点（MVP）:
-- 現在は in-memory 管理。運用では PostgreSQL/Redis を導入すること。
+Rust microservice:
+Optional high-performance simulation service is available in `backend/rust`. To enable the Node server to proxy to Rust, set `USE_RUST=true` and `RUST_URL` env variables.
+
+Start Rust service (if you have Rust toolchain):
+1. cd backend/rust
+2. cargo run
+3. In backend process set USE_RUST=true (e.g., `USE_RUST=true npm start` in unix or set env var in Railway)
+
+
 - rate-limit は単純な IP カウント。プロダクションでは堅牢な対策を追加してください。
