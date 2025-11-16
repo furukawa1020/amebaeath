@@ -7,6 +7,7 @@ const path = require('path')
 const { v4: uuidv4 } = require('uuid')
 const { updateOrganism, simulateWorldStep } = require('./world')
 const fetch = require('node-fetch')
+const fetch = require('node-fetch')
 const RUST_URL = process.env.RUST_URL || 'http://localhost:8081'
 
 const app = express()
@@ -23,11 +24,23 @@ let tick = 0
 const TOUCH_EVENTS = []
 let contactMap = {}
 
+const RUST_URL = process.env.RUST_URL || 'http://localhost:4001'
+const USE_RUST = process.env.USE_RUST === 'true'
+
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
 const spawnCounts = {}
 
 // REST: GET /state
-app.get('/state', (req, res) => {
+app.get('/state', async (req, res) => {
+  if (USE_RUST) {
+    try {
+      const r = await fetch(`${RUST_URL}/state`)
+      const json = await r.json()
+      return res.json(json)
+    } catch (err) {
+      console.error('Failed to fetch rust state', err)
+    }
+  }
   res.json({ tick, organisms: organisms.map(o => ({ id: o.id, position: o.position, size: o.size, energy: o.energy, state: o.state, dna_layers: o.dna_layers })) })
 })
 
