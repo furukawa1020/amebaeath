@@ -19,6 +19,7 @@ const DATA_PATH = path.join(__dirname, 'initial_organisms.json')
 let organisms = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'))
 let tick = 0
 const TOUCH_EVENTS = []
+let contactMap = {}
 
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
 const spawnCounts = {}
@@ -104,7 +105,13 @@ setInterval(() => {
   const dt = 1.0
   tick += 1
   // perform several small steps to smooth
-  for (let i=0;i<4;i++) simulateWorldStep(organisms, TOUCH_EVENTS, 0.25)
+  for (let i=0;i<4;i++) {
+    const res = simulateWorldStep(organisms, TOUCH_EVENTS, 0.25, contactMap)
+    if (res && res.contactMap) contactMap = res.contactMap
+    if (res && res.events && res.events.length) {
+      res.events.forEach(e => io.emit(e.type, e))
+    }
+  }
   // broadcast minimal diff (for MVP we broadcast full small set)
   const updates = organisms.map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
   io.emit('tick', { tick, updates })
