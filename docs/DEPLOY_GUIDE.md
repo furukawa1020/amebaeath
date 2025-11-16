@@ -13,6 +13,7 @@
 Railway (Backend)
 1. GitHub リポジトリを Railway に接続
 2. デプロイ設定: `backend` ディレクトリを指定、`npm install` と `npm start` をビルドコマンドに設定
+  - If you prefer container deployment, use the Dockerfile provided in `backend/Dockerfile` to build a container on Railway.
 3. 環境変数を設定（DATABASE_URL 等）
 4. Railway Scheduler にて 1 分毎の世界 persist ジョブを設定
 注意（Rust）
