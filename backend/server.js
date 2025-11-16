@@ -217,3 +217,6 @@ const PORT = process.env.PORT || 3001
 server.listen(PORT, () => {
   console.log(`Ameba Earth backend listening on ${PORT}`)
 })
+
+// export app for unit testing
+module.exports = { app };
