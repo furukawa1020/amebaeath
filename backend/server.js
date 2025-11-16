@@ -359,4 +359,4 @@ if (require.main === module) {
 
 // export app for unit testing
 // export app and loop control to allow tests to configure environment
-module.exports = { app, startWorldLoop, stopWorldLoop, startPersistLoop, stopPersistLoop };
+module.exports = { app, startWorldLoop, stopWorldLoop, startPersistLoop, stopPersistLoop, redisClient };

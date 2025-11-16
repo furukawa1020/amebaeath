@@ -11,6 +11,8 @@
 - world.js : 世界シミュレーションロジック（AI 適用、物理、マップ更新）
 - persistence layer : PostgreSQL（jsonb）または Redis（短期状態）
 - rate-limit middleware : express-rate-limit
+ - rate-limit middleware : express-rate-limit
+ - optional distributed spawn counter: set REDIS_URL to enable Redis-based daily per-ip spawn counters; fallback order is Redis -> PostgreSQL -> in-memory.
 - spatial index : quadtree か grid-hash
 
 3) Cron/スケジューラ
@@ -31,3 +33,5 @@
 7) 将来の拡張
 - マイクロサービス化（simulation worker と API 層分離）
 - Redis を使った pub/sub で水平スケール
+	- REDIS_URL を設定すると、/spawn の日次制限が Redis による分散カウントになります
+	- /health エンドポイントは DB と Redis の接続の生存を返します（ok/db/redis）
