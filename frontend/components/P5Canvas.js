@@ -13,10 +13,20 @@ export default function P5Canvas({ wsUrl }) {
   useEffect(() => {
     let p5Instance = null
     let p5 = null
-    (async () => {
-      // client-only dynamic imports (avoid SSR/runtime import issues)
-      p5 = (await import('p5')).default
-      const anime = (await import('animejs/lib/anime.es.js')).default
+    let anime = null
+
+    async function initP5() {
+      if (typeof window === 'undefined') return
+      try {
+        // client-only dynamic imports (avoid SSR/runtime import issues)
+        const p5mod = await import('p5')
+        p5 = p5mod && p5mod.default ? p5mod.default : p5mod
+        const animemod = await import('animejs/lib/anime.es.js')
+        anime = animemod && animemod.default ? animemod.default : animemod
+      } catch (e) {
+        console.error('Failed to dynamically import p5 or animejs', e)
+        return
+      }
 
       p5Instance = new p5((s) => {
         s.setup = () => {
@@ -356,7 +366,9 @@ export default function P5Canvas({ wsUrl }) {
           }).catch(console.error)
         }
       }, canvasRef.current)
-    })()
+      }
+
+    initP5()
 
     return () => {
       if (socketRef.current) socketRef.current.disconnect()
