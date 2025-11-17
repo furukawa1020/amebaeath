@@ -18,8 +18,9 @@ type Organism struct {
 	Size     float64            `json:"size"`
 	Energy   float64            `json:"energy"`
 	State    string             `json:"state"`
+	Dna      []string           `json:"dna_layers"`
+	Traits   map[string]float64 `json:"traits"`
 }
-
 
 type Food struct {
 	ID     string  `json:"id"`
