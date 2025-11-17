@@ -205,8 +205,12 @@ func main() {
 		if r.Method == "POST" {
 			var body map[string]float64
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if v, ok := body["foodSpawnProb"]; ok { /* not persisted: if needed add variable */ _ = v }
-			if v, ok := body["reproductionBaseChance"]; ok { _ = v }
+			if v, ok := body["foodSpawnProb"]; ok { /* not persisted: if needed add variable */
+				_ = v
+			}
+			if v, ok := body["reproductionBaseChance"]; ok {
+				_ = v
+			}
 			w.WriteHeader(200)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"ok": true})
 			return
