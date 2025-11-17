@@ -1,6 +1,7 @@
 package com.ameba;
 
 import io.javalin.Javalin;
+import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -14,7 +15,8 @@ public class SidecarApp {
         if (System.getenv().containsKey("SIDE_CAR_PORT")) {
             try { port = Integer.parseInt(System.getenv("SIDE_CAR_PORT")); } catch (Exception ignored) {}
         }
-        Javalin app = Javalin.create(config -> config.defaultContentType = "application/json");
+    // create Javalin app (use default JSON behavior; individual endpoints set JSON responses)
+    Javalin app = Javalin.create();
         ObjectMapper mapper = new ObjectMapper();
 
         // create a world and start ticking
