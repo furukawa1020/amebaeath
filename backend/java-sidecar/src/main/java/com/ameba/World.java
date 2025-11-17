@@ -316,6 +316,7 @@ public class World {
         Object h = cfg.get("worldHeight"); if (h instanceof Number) {
             // height final - ignore
         }
+        try { saveConfigToFile(); } catch (Exception ignored) {}
     }
 
     private synchronized void loadConfigFromFile() throws IOException {

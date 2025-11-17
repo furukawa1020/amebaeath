@@ -341,6 +341,8 @@ func touchHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
+	// try to load persisted config if present
+	loadConfig()
 	// initial population
 	for i := 0; i < 20; i++ {
 		spawn(nil)
@@ -364,18 +366,20 @@ func main() {
 		defer mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == "GET" {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"foodSpawnProb": 0.15, "reproductionBaseChance": 0.12, "worldWidth": width, "worldHeight": height})
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"foodSpawnProb": foodSpawnProb, "reproductionBaseChance": reproductionBaseChance, "worldWidth": width, "worldHeight": height})
 			return
 		}
 		if r.Method == "POST" {
 			var body map[string]float64
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if v, ok := body["foodSpawnProb"]; ok { /* not persisted: if needed add variable */
-				_ = v
+			if v, ok := body["foodSpawnProb"]; ok {
+				foodSpawnProb = v
 			}
 			if v, ok := body["reproductionBaseChance"]; ok {
-				_ = v
+				reproductionBaseChance = v
 			}
+			// persist to file async
+			go saveConfig()
 			w.WriteHeader(200)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"ok": true})
 			return
@@ -385,7 +389,7 @@ func main() {
 	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"foodSpawnProb": foodSpawnProb, "reproductionBaseChance": reproductionBaseChance, "worldWidth": width, "worldHeight": height})
+		w.Header().Set("Content-Type", "application/json")
 		avgE := 0.0
 		if len(organisms) > 0 {
 			s := 0.0
@@ -394,7 +398,7 @@ func main() {
 			}
 			avgE = s / float64(len(organisms))
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"tick": tick, "population": len(organisms), "avgEnergy": avgE, "births": births, "deaths": deaths})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"tick": tick, "population": len(organisms), "avgEnergy": avgE, "births": births, "deaths": deaths, "foodSpawnProb": foodSpawnProb, "reproductionBaseChance": reproductionBaseChance})
 	})
 
 	// Prometheus-compatible metrics

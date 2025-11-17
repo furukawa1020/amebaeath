@@ -55,3 +55,23 @@ Next steps
 - Add Gradle wrapper to `backend/java-sidecar` for reproducible local builds without Docker.
 - Add persistent configuration storage for runtime tunables (config files or DB).
 - Expand event retention and metrics aggregation (Prometheus exporter).
+
+---
+
+Additional notes (added features)
+
+- Runtime config persistence: both Java sidecar and Go sim persist runtime tunables to `config/world.json` by default. Override with the `WORLD_CONFIG_PATH` environment variable.
+- Prometheus-compatible text metrics:
+  - Java: `http://localhost:4001/metrics/prometheus`
+  - Go:   `http://localhost:5001/metrics/prometheus`
+
+Windows PowerShell quick commands:
+
+```powershell
+docker compose build java-sidecar go-sim backend --progress=plain
+docker compose up -d
+Invoke-RestMethod http://localhost:4001/health | ConvertTo-Json
+Invoke-RestMethod http://localhost:5001/health | ConvertTo-Json
+Invoke-RestMethod -UseBasicParsing http://localhost:4001/metrics/prometheus
+Invoke-RestMethod -UseBasicParsing http://localhost:5001/metrics/prometheus
+```
