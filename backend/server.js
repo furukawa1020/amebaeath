@@ -58,7 +58,7 @@ if (REDIS_URL) {
     redisClient = null
   }
 }
-const { saveQuadtreeConfig, reloadQuadtreeConfig } = require('./world')
+const { saveQuadtreeConfig, reloadQuadtreeConfig, createWorldMaps, saveWorldMaps, loadWorldMaps, applyRuntimeConfig, WORLD_SIZE: WS, GRID_RESOLUTION: GR } = require('./world')
 const { execFile } = require('child_process')
 
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
@@ -110,6 +110,43 @@ app.post('/config/quadtree', (req, res) => {
   try {
     saveQuadtreeConfig({ threshold, maxObjects, maxLevel })
     reloadQuadtreeConfig()
+    return res.json({ ok: true })
+  } catch (e) { return res.status(500).json({ error: e.toString() }) }
+})
+
+// Admin: get/update world runtime config (WORLD_SIZE, GRID_RESOLUTION, food tunables)
+app.get('/config/world', (req, res) => {
+  try {
+    return res.json({ ok: true, WORLD_SIZE: WS, GRID_RESOLUTION: GR })
+  } catch (e) { return res.status(500).json({ error: 'read failed' }) }
+})
+
+app.post('/config/world', (req, res) => {
+  try {
+    applyRuntimeConfig(req.body || {})
+    return res.json({ ok: true })
+  } catch (e) { return res.status(500).json({ error: e.toString() }) }
+})
+
+// Admin: persist/load world maps
+app.post('/world/maps/save', (req, res) => {
+  try {
+    const p = path.join(__dirname, 'config', 'world_maps.json')
+    const ok = saveWorldMaps(p, worldMaps)
+    if (!ok) return res.status(500).json({ ok: false })
+    return res.json({ ok: true, path: p })
+  } catch (e) { return res.status(500).json({ error: e.toString() }) }
+})
+
+app.post('/world/maps/load', (req, res) => {
+  try {
+    const p = path.join(__dirname, 'config', 'world_maps.json')
+    const loaded = loadWorldMaps(p)
+    if (!loaded) return res.status(404).json({ ok: false, error: 'no-saved-maps' })
+    // replace current maps (basic merge)
+    worldMaps.temperatureMap = loaded.temperatureMap || worldMaps.temperatureMap
+    worldMaps.foodMap = loaded.foodMap || worldMaps.foodMap
+    worldMaps.densityMap = loaded.densityMap || worldMaps.densityMap
     return res.json({ ok: true })
   } catch (e) { return res.status(500).json({ error: e.toString() }) }
 })

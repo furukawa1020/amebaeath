@@ -128,6 +128,13 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
     // compute local density later via map building
     // Cohesion: head towards average of nearby neighbors
   const neighbors = spatial.query(org.position, NEIGHBOR_RADIUS)
+    // Lightweight decision-making: foraging, fleeing, hunting, wander
+    try {
+      decideOrganismAction(org,  dt, worldMaps, neighbors)
+    } catch (e) {
+      // keep simulation robust
+      console.error('decideOrganismAction error', e)
+    }
     if (neighbors.length > 0) {
       const avgX = neighbors.reduce((s, n) => s + n.position.x, 0) / neighbors.length
       const avgY = neighbors.reduce((s, n) => s + n.position.y, 0) / neighbors.length
@@ -231,6 +238,87 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
   }
 
   return { removedIds: Array.from(removedIds), events, contactMap, maps: worldMaps }
+}
+
+// Simple, very lightweight decision function for organisms.
+// Not a full AI — small heuristics that adjust velocity toward goals.
+function decideOrganismAction(org, dt, worldMaps, neighbors = []) {
+  // parameters (tunable)
+  const SEEK_FOOD_ENERGY_THRESHOLD = 0.5
+  const HUNT_ENERGY_THRESHOLD = 0.6
+  const WANDER_STRENGTH = 0.02
+  const FLEE_STRENGTH = 0.4
+  const HUNT_STRENGTH = 0.25
+
+  // if predators nearby (larger organisms), flee
+  const threats = neighbors.filter(o => o.size > org.size * 1.15)
+  if (threats.length > 0) {
+    // flee from vector sum of threats
+    const vx = threats.reduce((s, t) => s + (org.position.x - t.position.x), 0)
+    const vy = threats.reduce((s, t) => s + (org.position.y - t.position.y), 0)
+    org.velocity.vx += (vx * FLEE_STRENGTH) * dt
+    org.velocity.vy += (vy * FLEE_STRENGTH) * dt
+    org.state = 'flee'
+    return
+  }
+
+  // if energy is low, bias toward foraging (greedy: head to local cell with most food)
+  if (worldMaps && org.energy < SEEK_FOOD_ENERGY_THRESHOLD) {
+    const gx = Math.floor(org.position.x / CELL_SIZE)
+    const gy = Math.floor(org.position.y / CELL_SIZE)
+    let best = { gx, gy, val: (worldMaps.foodMap && worldMaps.foodMap[gy] && worldMaps.foodMap[gy][gx]) || 0 }
+    // search nearby cells within 3x3 window
+    for (let oy = -2; oy <= 2; oy++) {
+      for (let ox = -2; ox <= 2; ox++) {
+        const nx = gx + ox
+        const ny = gy + oy
+        if (ny < 0 || ny >= GRID_RESOLUTION || nx < 0 || nx >= GRID_RESOLUTION) continue
+        const v = (worldMaps.foodMap && worldMaps.foodMap[ny] && worldMaps.foodMap[ny][nx]) || 0
+        if (v > best.val) best = { gx: nx, gy: ny, val: v }
+      }
+    }
+    if (best.val > 0) {
+      // compute center of best cell
+      const tx = best.gx * CELL_SIZE + CELL_SIZE/2
+      const ty = best.gy * CELL_SIZE + CELL_SIZE/2
+      const dx = tx - org.position.x
+      const dy = ty - org.position.y
+      const d2 = dx*dx + dy*dy + 1e-6
+      org.velocity.vx += (dx / Math.sqrt(d2)) * (WANDER_STRENGTH*4) * dt
+      org.velocity.vy += (dy / Math.sqrt(d2)) * (WANDER_STRENGTH*4) * dt
+      org.state = 'forage'
+      return
+    }
+  }
+
+  // hunting behavior: if energy high and organism is significantly larger than some neighbors, pursue the nearest smaller neighbor
+  if (org.energy > HUNT_ENERGY_THRESHOLD) {
+    const prey = neighbors.filter(o => o.size < org.size * 0.95)
+    if (prey.length > 0) {
+      // choose nearest
+      let nearest = null; let minD = Infinity
+      for (const p of prey) {
+        const dx = p.position.x - org.position.x
+        const dy = p.position.y - org.position.y
+        const d2 = dx*dx + dy*dy
+        if (d2 < minD) { minD = d2; nearest = p }
+      }
+      if (nearest) {
+        const dx = nearest.position.x - org.position.x
+        const dy = nearest.position.y - org.position.y
+        const dist = Math.sqrt(minD) + 1e-6
+        org.velocity.vx += (dx/dist) * HUNT_STRENGTH * dt
+        org.velocity.vy += (dy/dist) * HUNT_STRENGTH * dt
+        org.state = 'hunt'
+        return
+      }
+    }
+  }
+
+  // otherwise small wandering / stabilize
+  org.velocity.vx += (Math.random()-0.5) * WANDER_STRENGTH * dt
+  org.velocity.vy += (Math.random()-0.5) * WANDER_STRENGTH * dt
+  org.state = org.state || 'normal'
 }
 
 // Spatial hash helps find neighbors quickly
