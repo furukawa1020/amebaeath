@@ -17,10 +17,16 @@ services:
       DATABASE_URL: postgres://ameba:ameba@db:5432/amebadb
       USE_RUST: 'false'
       ADMIN_TOKEN: ${ADMIN_TOKEN}
+      USE_JAVA: 'true'
+      JAVA_URL: http://java-sidecar:4001
+      USE_GO: 'true'
+      GO_URL: http://go-sim:5001
     ports:
       - '3001:3001'
     depends_on:
       - db
+      - java-sidecar
+      - go-sim
 
   frontend:
     build: ./frontend
@@ -30,6 +36,30 @@ services:
       - '3000:3000'
     depends_on:
       - backend
+
+  java-sidecar:
+    build:
+      context: ./backend/java-sidecar
+    ports:
+      - '4001:4001'
+    environment:
+      - SIDE_CAR_PORT=4001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  go-sim:
+    build:
+      context: ./backend/go-sim
+    ports:
+      - '5001:5001'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   db-data:
