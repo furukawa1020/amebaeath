@@ -305,9 +305,7 @@ export default function P5Canvas({ wsUrl }) {
               // normal
               s.ellipse(sx + 4, sy - 4, 3, 3)
             }
-          }
-
-            // draw energy bar above organism
+            // draw energy bar above organism (inside loop so 'o', 'sx', 'sy' are defined)
             if (typeof o.energy === 'number') {
               const bw = 36
               const bh = 6
@@ -317,8 +315,11 @@ export default function P5Canvas({ wsUrl }) {
               s.fill(0, 0, 0, 200)
               s.rect(ex - 1, ey - 1, bw + 2, bh + 2, 3)
               s.fill(30, 200, 100)
+              // clamp helper may not be defined globally; implement inline
+              const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
               s.rect(ex, ey, clamp((o.energy || 0) * bw, 0, bw), bh, 2)
             }
+          }
 
           // draw touches as heat pulses
           const now = Date.now()
