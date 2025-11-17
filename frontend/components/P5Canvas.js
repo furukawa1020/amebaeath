@@ -15,14 +15,20 @@ export default function P5Canvas({ wsUrl }) {
     let p5 = null
     let anime = null
 
-    async function initP5() {
+  async function initP5() {
       if (typeof window === 'undefined') return
       try {
         // client-only dynamic imports (avoid SSR/runtime import issues)
         const p5mod = await import('p5')
         p5 = p5mod && p5mod.default ? p5mod.default : p5mod
-        const animemod = await import('animejs/lib/anime.es.js')
-        anime = animemod && animemod.default ? animemod.default : animemod
+  const animemod = await import('animejs/lib/anime.es.js')
+  anime = animemod && animemod.default ? animemod.default : animemod
+  // Disable anime.js by default in the production bundle to avoid
+  // unexpected traversal/recursion on complex objects. To enable for
+  // local debugging set `window.__AMEBAEATH_ALLOW_ANIME = true` in the
+  // browser console before the app loads.
+  const allowAnimeFlag = !!(typeof window !== 'undefined' && window.__AMEBAEATH_ALLOW_ANIME)
+  const allowAnime = (typeof anime === 'function') && allowAnimeFlag
       } catch (e) {
         console.error('Failed to dynamically import p5 or animejs', e)
         return
@@ -82,7 +88,7 @@ export default function P5Canvas({ wsUrl }) {
             }
             // animate breathing using anime.js on update (anime is client-only)
             const target = organisms.find(x => x.id === u.id)
-            if (target && typeof anime === 'function') {
+            if (target && allowAnime) {
               try { anime.remove(target) } catch(e) { /* ignore */ }
               try { anime({ targets: target, _scale: [1.0, 1.06, 1.0], duration: 900, easing: 'easeInOutSine' }) } catch(e) { /* ignore */ }
             }
@@ -107,7 +113,7 @@ export default function P5Canvas({ wsUrl }) {
           if (!o) return
           organisms.push(o)
           o._scale = 1
-          try { if (typeof anime === 'function') anime({ targets: o, _scale: [0.4, 1.0], duration: 700, easing: 'easeOutBack' }) } catch(e) {}
+          try { if (allowAnime) anime({ targets: o, _scale: [0.4, 1.0], duration: 700, easing: 'easeOutBack' }) } catch(e) {}
         })
         socketRef.current.on('touch', (payload) => {
           // visual pulse
@@ -127,10 +133,10 @@ export default function P5Canvas({ wsUrl }) {
         socketRef.current.on('evolve', (payload) => {
           const id = payload.id
           const o = organisms.find(x => x.id === id)
-          if (o) {
+            if (o) {
             o.state = 'evolved'
-            // small glow/tween
-            anime({ targets: o, _scale: [1, 1.2, 1], duration: 700, easing: 'easeOutExpo' })
+            // small glow/tween (only if anime allowed)
+            try { if (allowAnime) anime({ targets: o, _scale: [1, 1.2, 1], duration: 700, easing: 'easeOutExpo' }) } catch(e) {}
           }
         })
 
