@@ -45,6 +45,8 @@ export default function P5Canvas({ wsUrl }) {
   let pulses = []
   let selected = null
   let touches = []
+  // maps holds optional heat/food maps sent from the server (temperatureMap, foodMap)
+  let maps = null
 
   socketRef.current = io(wsUrl)
   // socket handlers registered after anime is available
