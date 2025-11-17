@@ -43,6 +43,8 @@ const RUST_URL = process.env.RUST_URL || 'http://localhost:6001'
 const USE_RUST = process.env.USE_RUST === 'true'
 const JAVA_URL = process.env.JAVA_URL || 'http://localhost:4001'
 const USE_JAVA = process.env.USE_JAVA === 'true'
+const GO_URL = process.env.GO_URL || 'http://localhost:5001'
+const USE_GO = process.env.USE_GO === 'true'
 const { Pool } = require('pg')
 const DATABASE_URL = process.env.DATABASE_URL
 let dbPool = null
@@ -97,6 +99,7 @@ let metricsPos = 0
 
 // REST: GET /state
 app.get('/state', async (req, res) => {
+  // prefer Java -> Go -> Rust -> local
   if (USE_JAVA) {
     try {
       const r = await fetch(`${JAVA_URL}/state`)
@@ -104,6 +107,15 @@ app.get('/state', async (req, res) => {
       return res.json(json)
     } catch (err) {
       console.error('Failed to fetch java state', err)
+    }
+  }
+  if (USE_GO) {
+    try {
+      const r = await fetch(`${GO_URL}/state`)
+      const json = await r.json()
+      return res.json(json)
+    } catch (err) {
+      console.error('Failed to fetch go state', err)
     }
   }
   if (USE_RUST) {
@@ -312,6 +324,29 @@ app.post('/spawn', async (req, res) => {
 
     // Make or proxy a spawn
     const seedTraits = req.body && req.body.seedTraits ? req.body.seedTraits : null
+    // prefer Java -> Go -> Rust -> local
+    if (USE_JAVA) {
+      try {
+        const resp = await fetch(`${JAVA_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seedTraits || {}) })
+        const parsed = await resp.json()
+        const newOrg = parsed.organism || parsed
+        io.emit('spawn', { organism: newOrg })
+        return res.status(201).json({ organism: newOrg })
+      } catch (err) {
+        console.warn('java spawn proxy failed; falling back', err && err.message)
+      }
+    }
+    if (USE_GO) {
+      try {
+        const resp = await fetch(`${GO_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seedTraits || {}) })
+        const parsed = await resp.json()
+        const newOrg = parsed.organism || parsed
+        io.emit('spawn', { organism: newOrg })
+        return res.status(201).json({ organism: newOrg })
+      } catch (err) {
+        console.warn('go spawn proxy failed; falling back', err && err.message)
+      }
+    }
     if (USE_RUST) {
       const resp = await fetch(`${RUST_URL}/spawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seedTraits }) })
       const parsed = await resp.json()
@@ -348,20 +383,33 @@ app.post('/touch', (req, res) => {
   touchCounts[ip].push(tnow)
   (async () => {
     try {
+      if (USE_JAVA) {
+        try {
+          const resp = await fetch(`${JAVA_URL}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x, y, amplitude, sigma }) })
+          const parsed = await resp.json()
+          const touch = parsed.touch || parsed
+          TOUCH_EVENTS.push(touch)
+          io.emit('touch', touch)
+          if (dbPool) { try { await dbPool.query('INSERT INTO touches (id,x,y,amplitude,sigma,created_at) VALUES ($1,$2,$3,$4,$5,now())', [touch.id, touch.x, touch.y, touch.amplitude, touch.sigma]) } catch (err) { console.error('db touch err', err) } }
+          return res.json({ ok: true, touch })
+        } catch (err) {
+          console.warn('java touch proxy failed; falling back', err && err.message)
+        }
+      }
       if (USE_RUST) {
         const resp = await fetch(`${RUST_URL}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x, y, amplitude, sigma }) })
         const parsed = await resp.json()
-  const touch = parsed.touch || parsed
-  TOUCH_EVENTS.push(touch)
-  io.emit('touch', touch)
-  if (dbPool) { try { await dbPool.query('INSERT INTO touches (id,x,y,amplitude,sigma,created_at) VALUES ($1,$2,$3,$4,$5,now())', [touch.id, touch.x, touch.y, touch.amplitude, touch.sigma]) } catch (err) { console.error('db touch err', err) } }
-  return res.json({ ok: true, touch })
+        const touch = parsed.touch || parsed
+        TOUCH_EVENTS.push(touch)
+        io.emit('touch', touch)
+        if (dbPool) { try { await dbPool.query('INSERT INTO touches (id,x,y,amplitude,sigma,created_at) VALUES ($1,$2,$3,$4,$5,now())', [touch.id, touch.x, touch.y, touch.amplitude, touch.sigma]) } catch (err) { console.error('db touch err', err) } }
+        return res.json({ ok: true, touch })
       } else {
-  const touch = { id: uuidv4(), x, y, amplitude, sigma, createdAt: Date.now() }
-  TOUCH_EVENTS.push(touch)
-  io.emit('touch', touch)
-  if (dbPool) { try { await dbPool.query('INSERT INTO touches (id,x,y,amplitude,sigma,created_at) VALUES ($1,$2,$3,$4,$5,now())', [touch.id, touch.x, touch.y, touch.amplitude, touch.sigma]) } catch (err) { console.error('db touch err', err) } }
-  return res.json({ ok: true, touch })
+        const touch = { id: uuidv4(), x, y, amplitude, sigma, createdAt: Date.now() }
+        TOUCH_EVENTS.push(touch)
+        io.emit('touch', touch)
+        if (dbPool) { try { await dbPool.query('INSERT INTO touches (id,x,y,amplitude,sigma,created_at) VALUES ($1,$2,$3,$4,$5,now())', [touch.id, touch.x, touch.y, touch.amplitude, touch.sigma]) } catch (err) { console.error('db touch err', err) } }
+        return res.json({ ok: true, touch })
       }
     } catch (err) {
       console.error('touch proxy error', err)
