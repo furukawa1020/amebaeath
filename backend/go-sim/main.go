@@ -34,6 +34,9 @@ var (
 	tick      int64 = 0
 	width           = 2000.0
 	height          = 2000.0
+	births    int64 = 0
+	deaths    int64 = 0
+	events          = []map[string]interface{}{}
 )
 
 func stepWorld() {
@@ -71,6 +74,8 @@ func stepWorld() {
 		if o.Energy <= 0 {
 			o.Energy = 0
 			o.State = "dead"
+			deaths++
+			events = append(events, map[string]interface{}{"type": "death", "organism": o.ID, "at": time.Now().UnixNano()})
 		}
 		// check food
 		eatenIdx := -1
@@ -83,13 +88,18 @@ func stepWorld() {
 			}
 		}
 		if eatenIdx >= 0 {
-			o.Energy = math.Min(1.5, o.Energy+foods[eatenIdx].Energy)
+			// consume
+			consumed := foods[eatenIdx]
+			o.Energy = math.Min(1.6, o.Energy+consumed.Energy)
 			// remove food
 			foods = append(foods[:eatenIdx], foods[eatenIdx+1:]...)
+			events = append(events, map[string]interface{}{"type": "food_consumed", "organism": o.ID, "food": consumed.ID, "at": time.Now().UnixNano()})
 			// reproduction chance
-			if o.Energy > 1.1 && rand.Float64() < 0.06 {
-				spawn(nil)
-				o.Energy -= 0.4
+			if o.Energy > 1.1 && rand.Float64() < 0.12 {
+				child := spawn(nil)
+				births++
+				events = append(events, map[string]interface{}{"type": "birth", "parent": o.ID, "child": child.ID, "at": time.Now().UnixNano()})
+				o.Energy -= 0.45
 			}
 		}
 	}
@@ -142,6 +152,8 @@ func spawnHandler(w http.ResponseWriter, r *http.Request) {
 	var body map[string]interface{}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	o := spawn(body["seedTraits"])
+	births++
+	events = append(events, map[string]interface{}{"type": "birth", "child": o.ID, "at": time.Now().UnixNano()})
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"organism": o})
@@ -182,6 +194,24 @@ func main() {
 	http.HandleFunc("/state", stateHandler)
 	http.HandleFunc("/spawn", spawnHandler)
 	http.HandleFunc("/touch", touchHandler)
+	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		avgE := 0.0
+		if len(organisms) > 0 {
+			s := 0.0
+			for _, o := range organisms { s += o.Energy }
+			avgE = s / float64(len(organisms))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"tick": tick, "population": len(organisms), "avgEnergy": avgE, "births": births, "deaths": deaths})
+	})
+	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(events)
+	})
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "sim": "go-sim"})

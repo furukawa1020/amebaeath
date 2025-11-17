@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.LinkedList;
 
 public class World {
     private final List<Organism> organisms = Collections.synchronizedList(new ArrayList<>());
@@ -15,6 +16,10 @@ public class World {
     private final double height;
     private final List<Food> foods = Collections.synchronizedList(new ArrayList<>());
     private final double FOOD_ENERGY = 0.6;
+    // metrics
+    private long births = 0;
+    private long deaths = 0;
+    private final List<Event> events = Collections.synchronizedList(new LinkedList<>());
 
     public World(double width, double height, int initial) {
         this.width = width;
@@ -141,9 +146,25 @@ public class World {
             if (o.x < 0) o.x = 0; if (o.y < 0) o.y = 0;
             if (o.x > width) o.x = width; if (o.y > height) o.y = height;
             // energy drain and aging
-            o.energy -= 0.008 + (0.001 * Math.abs(o.vx) + 0.001 * Math.abs(o.vy));
+            // metabolisms: if trait "metabolism" exists, scale drain
+            double metabolism = 1.0;
+            if (o.traits != null && o.traits.get("metabolism") instanceof Number) metabolism = ((Number)o.traits.get("metabolism")).doubleValue();
+            o.energy -= (0.006 + (0.001 * Math.abs(o.vx) + 0.001 * Math.abs(o.vy))) * metabolism;
             o.age += 1;
-            if (o.energy <= 0) { o.energy = 0; o.state = "dead"; }
+            if (o.energy <= 0) { o.energy = 0; o.state = "dead"; deaths++; events.add(Event.evolve(o.id)); }
+            // if energy low, accelerate toward nearest food (sensing)
+            if (o.energy < 0.9 && !foods.isEmpty()) {
+                Food nearest = null; double nd2 = Double.MAX_VALUE;
+                for (Food f : foods) {
+                    double dx = f.x - o.x; double dy = f.y - o.y; double d2 = dx*dx + dy*dy;
+                    if (d2 < nd2) { nd2 = d2; nearest = f; }
+                }
+                if (nearest != null) {
+                    double dx = nearest.x - o.x; double dy = nearest.y - o.y; double inv = 1.0 / (Math.sqrt(dx*dx+dy*dy) + 1e-6);
+                    o.vx += dx * inv * 0.02;
+                    o.vy += dy * inv * 0.02;
+                }
+            }
             // check for nearby food and consume
             Food eaten = null;
             for (Food food : foods) {
@@ -154,18 +175,37 @@ public class World {
                 }
             }
             if (eaten != null) {
-                o.energy = Math.min(1.5, o.energy + eaten.energy);
+                o.energy = Math.min(1.6, o.energy + eaten.energy);
                 foods.remove(eaten);
+                events.add(Event.foodConsumed(o.id, eaten.id));
                 // small chance to reproduce if energy high
-                if (o.energy > 1.1 && rnd.nextDouble() < 0.08) {
+                if (o.energy > 1.1 && rnd.nextDouble() < 0.12) {
                     Map<String,Object> childTraits = new HashMap<>(o.traits);
                     // slight mutation
                     childTraits.put("cohesion", Math.max(0.0, Math.min(1.0, ((Number)childTraits.getOrDefault("cohesion", 0.3)).doubleValue() + (rnd.nextDouble()-0.5)*0.05)));
-                    spawn(childTraits);
-                    o.energy -= 0.4;
+                    Organism child = spawn(childTraits);
+                    births++;
+                    events.add(Event.evolve(child.id));
+                    o.energy -= 0.45;
                 }
             }
         }
+    }
+
+    public synchronized Map<String,Object> getMetricsSnapshot() {
+        Map<String,Object> m = new HashMap<>();
+        m.put("tick", tick);
+        m.put("population", organisms.size());
+        double sumE = 0; int cnt = 0;
+        for (Organism o : organisms) { sumE += o.energy; cnt++; }
+        m.put("avgEnergy", cnt>0 ? sumE / cnt : 0);
+        m.put("births", births);
+        m.put("deaths", deaths);
+        return m;
+    }
+
+    public synchronized List<Event> getEventsSnapshot() {
+        return new ArrayList<>(events);
     }
 
     public synchronized List<Organism> snapshotOrganisms() {

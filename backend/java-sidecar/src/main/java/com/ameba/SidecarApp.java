@@ -59,6 +59,16 @@ public class SidecarApp {
             ctx.result(mapper.writeValueAsString(root));
         });
 
+        // metrics endpoint for observability
+        app.get("/metrics", ctx -> {
+            ctx.json(world.getMetricsSnapshot());
+        });
+
+        // events endpoint: recent events
+        app.get("/events", ctx -> {
+            ctx.json(world.getEventsSnapshot());
+        });
+
         // spawn via Java sidecar
         app.post("/spawn", ctx -> {
             Map seed = null;
