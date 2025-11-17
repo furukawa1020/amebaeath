@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AmebaEarth - Tauri Frontend</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.1/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <style>body{margin:0;background:#0b0f14;color:#fff;font-family:Arial}</style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      // Very small p5 sketch to show connectivity to local sidecar /state
+      let sketch = (p) => {
+        let organisms = [];
+        p.setup = () => {
+          p.createCanvas(800, 800);
+          p.background(11,15,20);
+          setInterval(fetchState, 1000);
+        }
+        function fetchState(){
+          fetch('http://127.0.0.1:4001/state').then(r=>r.json()).then(j=>{
+            organisms = j.organisms || j.updates || [];
+          }).catch(e=>console.warn('fetch state',e));
+        }
+        p.draw = () => {
+          p.background(11,15,20, 200);
+          p.noStroke();
+          for(const o of organisms){
+            const x = (o.position.x || 0)/2000 * p.width;
+            const y = (o.position.y || 0)/2000 * p.height;
+            const r = Math.max(4, (o.size||1)*12);
+            p.fill(o.dna_layers && o.dna_layers[0] ? o.dna_layers[0] : '#88c1ff');
+            p.ellipse(x,y,r,r);
+            // energy bar
+            p.fill(20,20,20,180);
+            p.rect(x - r/2, y - r/2 - 8, r, 4);
+            p.fill(0,200,0);
+            p.rect(x - r/2, y - r/2 - 8, r * Math.max(0,Math.min(1,o.energy||0)), 4);
+          }
+        }
+      }
+      new p5(sketch, document.getElementById('app'));
+    </script>
+  </body>
+</html>
