@@ -118,6 +118,13 @@ app.post('/config/quadtree', (req, res) => {
 app.post('/config/quadtree/autotune', (req, res) => {
   // This endpoint executes the bench script as a child process and returns the result.
   const script = path.join(__dirname, 'bench', 'auto-tune.js')
+  // ensure config dir exists so child script can write its output
+  try {
+    const cfgDir = path.join(__dirname, 'config')
+    if (!fs.existsSync(cfgDir)) fs.mkdirSync(cfgDir, { recursive: true })
+  } catch (e) {
+    console.warn('failed to ensure config dir', e)
+  }
   // allow optional overrides via body for sizes and queries to make the endpoint testable
   const sizes = req.body && req.body.sizes ? req.body.sizes.join(',') : undefined
   const queries = req.body && req.body.queries ? String(req.body.queries) : undefined
