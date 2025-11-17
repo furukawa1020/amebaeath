@@ -172,5 +172,9 @@ public class World {
         return new ArrayList<>(organisms);
     }
 
+    public synchronized List<Food> getFoodsSnapshot() {
+        return new ArrayList<>(foods);
+    }
+
     public synchronized long getTick() { return tick; }
 }
