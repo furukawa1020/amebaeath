@@ -7,6 +7,12 @@ import java.util.Random;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.io.IOException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class World {
     private final List<Organism> organisms = Collections.synchronizedList(new ArrayList<>());
@@ -16,6 +22,8 @@ public class World {
     private final double height;
     private final List<Food> foods = Collections.synchronizedList(new ArrayList<>());
     private final double FOOD_ENERGY = 0.6;
+    private final ObjectMapper json = new ObjectMapper().findAndRegisterModules();
+    private final Path configPath;
     // metrics
     private long births = 0;
     private long deaths = 0;
@@ -23,8 +31,15 @@ public class World {
     // runtime tunables
     private double foodSpawnProb = 0.15;
     private double reproductionBaseChance = 0.12;
+    // default config file location; can be overridden by env WORLD_CONFIG_PATH
 
     public World(double width, double height, int initial) {
+        // determine config path from env or default
+        String cfg = System.getenv().getOrDefault("WORLD_CONFIG_PATH", "config/world.json");
+        this.configPath = Paths.get(cfg);
+        // try load config if exists
+        try { loadConfigFromFile(); } catch (Exception ignored) {}
+
         this.width = width;
         this.height = height;
         for (int i = 0; i < initial; i++) {
@@ -215,6 +230,8 @@ public class World {
                     births++;
                     events.add(Event.birth(o.id, child.id));
                     o.energy -= 0.45;
+                    // persist updated metrics/config occasionally
+                    try { saveConfigToFile(); } catch (Exception ignored) {}
                 }
             }
         }
@@ -298,6 +315,37 @@ public class World {
         }
         Object h = cfg.get("worldHeight"); if (h instanceof Number) {
             // height final - ignore
+        }
+    }
+
+    private synchronized void loadConfigFromFile() throws IOException {
+        if (configPath == null) return;
+        if (!Files.exists(configPath)) return;
+        try {
+            byte[] raw = Files.readAllBytes(configPath);
+            Map<String,Object> cfg = json.readValue(raw, Map.class);
+            Object f = cfg.get("foodSpawnProb"); if (f instanceof Number) foodSpawnProb = ((Number)f).doubleValue();
+            Object r = cfg.get("reproductionBaseChance"); if (r instanceof Number) reproductionBaseChance = ((Number)r).doubleValue();
+        } catch (IOException ex) {
+            throw ex;
+        }
+    }
+
+    private synchronized void saveConfigToFile() throws IOException {
+        if (configPath == null) return;
+        try {
+            if (!Files.exists(configPath.getParent())) {
+                try { Files.createDirectories(configPath.getParent()); } catch (Exception ignored) {}
+            }
+            Map<String,Object> cfg = new HashMap<>();
+            cfg.put("foodSpawnProb", foodSpawnProb);
+            cfg.put("reproductionBaseChance", reproductionBaseChance);
+            cfg.put("worldWidth", width);
+            cfg.put("worldHeight", height);
+            json.enable(SerializationFeature.INDENT_OUTPUT);
+            Files.write(configPath, json.writeValueAsBytes(cfg));
+        } catch (IOException ex) {
+            throw ex;
         }
     }
 

@@ -40,6 +40,10 @@ var (
 	births    int64 = 0
 	deaths    int64 = 0
 	events          = []map[string]interface{}{}
+	// runtime tunables
+	foodSpawnProb          = 0.15
+	reproductionBaseChance = 0.12
+	configPath             = "config/world.json"
 )
 
 func stepWorld() {
@@ -98,7 +102,7 @@ func stepWorld() {
 			foods = append(foods[:eatenIdx], foods[eatenIdx+1:]...)
 			events = append(events, map[string]interface{}{"type": "food_consumed", "organism": o.ID, "food": consumed.ID, "at": time.Now().UnixNano()})
 			// reproduction chance
-			if o.Energy > 1.1 && rand.Float64() < 0.12 {
+			if o.Energy > 1.1 && rand.Float64() < reproductionBaseChance {
 				// inherit dna and mutate
 				mutationRate := 0.02
 				childDna := mutateDna(o.Dna, mutationRate)
@@ -114,7 +118,7 @@ func stepWorld() {
 		}
 	}
 	// spawn random food occasionally
-	if rand.Float64() < 0.15 {
+	if rand.Float64() < foodSpawnProb {
 		spawnFoodAt(rand.Float64()*width, rand.Float64()*height)
 	}
 }
@@ -317,7 +321,7 @@ func main() {
 	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"foodSpawnProb": foodSpawnProb, "reproductionBaseChance": reproductionBaseChance, "worldWidth": width, "worldHeight": height})
 		avgE := 0.0
 		if len(organisms) > 0 {
 			s := 0.0
@@ -328,6 +332,36 @@ func main() {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"tick": tick, "population": len(organisms), "avgEnergy": avgE, "births": births, "deaths": deaths})
 	})
+
+		// Prometheus-compatible metrics
+		http.HandleFunc("/metrics/prometheus", func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			defer mu.Unlock()
+			w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+			avgE := 0.0
+			if len(organisms) > 0 {
+				s := 0.0
+				for _, o := range organisms {
+					s += o.Energy
+				}
+				avgE = s / float64(len(organisms))
+			}
+			fmt.Fprintf(w, "# HELP ameba_population Current population\n")
+			fmt.Fprintf(w, "# TYPE ameba_population gauge\n")
+			fmt.Fprintf(w, "ameba_population %d\n", len(organisms))
+			fmt.Fprintf(w, "# HELP ameba_avg_energy Average organism energy\n")
+			fmt.Fprintf(w, "# TYPE ameba_avg_energy gauge\n")
+			fmt.Fprintf(w, "ameba_avg_energy %f\n", avgE)
+			fmt.Fprintf(w, "# HELP ameba_births Total births\n")
+			fmt.Fprintf(w, "# TYPE ameba_births counter\n")
+			fmt.Fprintf(w, "ameba_births %d\n", births)
+			fmt.Fprintf(w, "# HELP ameba_deaths Total deaths\n")
+			fmt.Fprintf(w, "# TYPE ameba_deaths counter\n")
+			fmt.Fprintf(w, "ameba_deaths %d\n", deaths)
+			fmt.Fprintf(w, "# HELP ameba_tick Current tick\n")
+			fmt.Fprintf(w, "# TYPE ameba_tick gauge\n")
+			fmt.Fprintf(w, "ameba_tick %d\n", tick)
+		})
 	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()

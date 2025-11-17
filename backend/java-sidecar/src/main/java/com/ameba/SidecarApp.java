@@ -64,6 +64,30 @@ public class SidecarApp {
             ctx.json(world.getMetricsSnapshot());
         });
 
+            // Prometheus text metrics
+            app.get("/metrics/prometheus", ctx -> {
+                Map<String,Object> m = world.getMetricsSnapshot();
+                StringBuilder sb = new StringBuilder();
+                // simple gauges
+                sb.append("# HELP ameba_population Current population\n");
+                sb.append("# TYPE ameba_population gauge\n");
+                sb.append("ameba_population ").append(m.getOrDefault("population", 0)).append('\n');
+                sb.append("# HELP ameba_avg_energy Average organism energy\n");
+                sb.append("# TYPE ameba_avg_energy gauge\n");
+                sb.append("ameba_avg_energy ").append(m.getOrDefault("avgEnergy", 0)).append('\n');
+                sb.append("# HELP ameba_births Total births\n");
+                sb.append("# TYPE ameba_births counter\n");
+                sb.append("ameba_births ").append(m.getOrDefault("births", 0)).append('\n');
+                sb.append("# HELP ameba_deaths Total deaths\n");
+                sb.append("# TYPE ameba_deaths counter\n");
+                sb.append("ameba_deaths ").append(m.getOrDefault("deaths", 0)).append('\n');
+                sb.append("# HELP ameba_tick Current tick\n");
+                sb.append("# TYPE ameba_tick gauge\n");
+                sb.append("ameba_tick ").append(m.getOrDefault("tick", 0)).append('\n');
+                ctx.contentType("text/plain; version=0.0.4");
+                ctx.result(sb.toString());
+            });
+
         // events endpoint: recent events
         app.get("/events", ctx -> {
             ctx.json(world.getEventsSnapshot());
