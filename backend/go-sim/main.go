@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"strconv"
 	"net/http"
 	"sync"
 	"time"
@@ -98,9 +99,16 @@ func stepWorld() {
 			events = append(events, map[string]interface{}{"type": "food_consumed", "organism": o.ID, "food": consumed.ID, "at": time.Now().UnixNano()})
 			// reproduction chance
 			if o.Energy > 1.1 && rand.Float64() < 0.12 {
-				child := spawn(nil)
+				// inherit dna and mutate
+				mutationRate := 0.02
+				childDna := mutateDna(o.Dna, mutationRate)
+				child := spawnWithDna(childDna, nil)
 				births++
 				events = append(events, map[string]interface{}{"type": "birth", "parent": o.ID, "child": child.ID, "at": time.Now().UnixNano()})
+				// if mutated, add a mutation event
+				if !dnaEqual(childDna, o.Dna) {
+					events = append(events, map[string]interface{}{"type": "mutation", "organism": child.ID, "dna": childDna, "at": time.Now().UnixNano()})
+				}
 				o.Energy -= 0.45
 			}
 		}
@@ -139,9 +147,79 @@ func spawnWithDna(dna []string, seedTraits interface{}) Organism {
 		Size:     8.0 + rand.Float64()*4.0,
 		Energy:   0.6 + rand.Float64()*0.9,
 		State:    "normal",
+		Dna:      dna,
+		Traits:   traits,
 	}
 	organisms = append(organisms, o)
 	return o
+}
+
+func mutateDna(parent []string, mutationRate float64) []string {
+	out := make([]string, 0, len(parent))
+	changed := false
+	for _, layer := range parent {
+		if rand.Float64() < mutationRate {
+			out = append(out, mutateColor(layer, 0.08))
+			changed = true
+		} else {
+			out = append(out, layer)
+		}
+	}
+	if !changed && rand.Float64() < (mutationRate/3.0) {
+		out = append(out, mutateColor("#88c1ff", 0.15))
+		changed = true
+	}
+	return out
+}
+
+func mutateColor(hex string, magnitude float64) string {
+	h := hex
+	if len(h) > 0 && h[0] == '#' {
+		h = h[1:]
+	}
+	if len(h) == 3 {
+		h = string(h[0])+string(h[0])+string(h[1])+string(h[1])+string(h[2])+string(h[2])
+	}
+	var val int64
+	if n, err := fmt.Sscanf(h, "%x", &val); n == 1 && err == nil {
+		// parsed
+	}
+	// fallback: attempt parse via Atoi base 16
+	parsed, err := strconv.ParseInt(h, 16, 32)
+	if err != nil {
+		return hex
+	}
+	v := int(parsed)
+	r := (v >> 16) & 0xFF
+	g := (v >> 8) & 0xFF
+	b := v & 0xFF
+	change := int(magnitude * 255)
+	r = clampInt(r + int((rand.Float64()-0.5)*2*float64(change)), 0, 255)
+	g = clampInt(g + int((rand.Float64()-0.5)*2*float64(change)), 0, 255)
+	b = clampInt(b + int((rand.Float64()-0.5)*2*float64(change)), 0, 255)
+	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
+}
+
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+func dnaEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func spawnFoodAt(x, y float64) Food {
