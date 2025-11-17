@@ -26,4 +26,13 @@ public class Event {
         e.at = System.currentTimeMillis();
         return e;
     }
+
+    public static Event foodConsumed(String organismId, String foodId) {
+        Event e = new Event();
+        e.type = "food_consumed";
+        e.organismId = organismId;
+        e.victimId = foodId;
+        e.at = System.currentTimeMillis();
+        return e;
+    }
 }
