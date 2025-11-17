@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -234,6 +235,69 @@ func spawnFoodAt(x, y float64) Food {
 	return f
 }
 
+// saveConfig writes runtime tunables to the config file
+func saveConfig() {
+	mu.Lock()
+	defer mu.Unlock()
+	cfg := map[string]interface{}{"foodSpawnProb": foodSpawnProb, "reproductionBaseChance": reproductionBaseChance, "worldWidth": width, "worldHeight": height}
+	bs, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		log.Println("saveConfig: marshal error:", err)
+		return
+	}
+	// ensure dir exists
+	dir := "config"
+	if p := os.Getenv("WORLD_CONFIG_PATH"); p != "" {
+		dir = ""
+		// if env points to a path, derive dir
+		dir = getDirFromPath(p)
+	}
+	if dir != "" {
+		_ = os.MkdirAll(dir, 0755)
+	}
+	path := configPath
+	if env := os.Getenv("WORLD_CONFIG_PATH"); env != "" {
+		path = env
+	}
+	if err := os.WriteFile(path, bs, 0644); err != nil {
+		log.Println("saveConfig: write error:", err)
+	}
+}
+
+func getDirFromPath(p string) string {
+	// naive: find last slash
+	for i := len(p) - 1; i >= 0; i-- {
+		if p[i] == '/' || p[i] == '\\' {
+			return p[:i]
+		}
+	}
+	return ""
+}
+
+// loadConfig reads config if present
+func loadConfig() {
+	path := configPath
+	if env := os.Getenv("WORLD_CONFIG_PATH"); env != "" {
+		path = env
+	}
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		// no config present
+		return
+	}
+	var cfg map[string]float64
+	if err := json.Unmarshal(bs, &cfg); err != nil {
+		log.Println("loadConfig: parse error:", err)
+		return
+	}
+	if v, ok := cfg["foodSpawnProb"]; ok {
+		foodSpawnProb = v
+	}
+	if v, ok := cfg["reproductionBaseChance"]; ok {
+		reproductionBaseChance = v
+	}
+}
+
 func stateHandler(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -333,35 +397,35 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"tick": tick, "population": len(organisms), "avgEnergy": avgE, "births": births, "deaths": deaths})
 	})
 
-		// Prometheus-compatible metrics
-		http.HandleFunc("/metrics/prometheus", func(w http.ResponseWriter, r *http.Request) {
-			mu.Lock()
-			defer mu.Unlock()
-			w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-			avgE := 0.0
-			if len(organisms) > 0 {
-				s := 0.0
-				for _, o := range organisms {
-					s += o.Energy
-				}
-				avgE = s / float64(len(organisms))
+	// Prometheus-compatible metrics
+	http.HandleFunc("/metrics/prometheus", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+		avgE := 0.0
+		if len(organisms) > 0 {
+			s := 0.0
+			for _, o := range organisms {
+				s += o.Energy
 			}
-			fmt.Fprintf(w, "# HELP ameba_population Current population\n")
-			fmt.Fprintf(w, "# TYPE ameba_population gauge\n")
-			fmt.Fprintf(w, "ameba_population %d\n", len(organisms))
-			fmt.Fprintf(w, "# HELP ameba_avg_energy Average organism energy\n")
-			fmt.Fprintf(w, "# TYPE ameba_avg_energy gauge\n")
-			fmt.Fprintf(w, "ameba_avg_energy %f\n", avgE)
-			fmt.Fprintf(w, "# HELP ameba_births Total births\n")
-			fmt.Fprintf(w, "# TYPE ameba_births counter\n")
-			fmt.Fprintf(w, "ameba_births %d\n", births)
-			fmt.Fprintf(w, "# HELP ameba_deaths Total deaths\n")
-			fmt.Fprintf(w, "# TYPE ameba_deaths counter\n")
-			fmt.Fprintf(w, "ameba_deaths %d\n", deaths)
-			fmt.Fprintf(w, "# HELP ameba_tick Current tick\n")
-			fmt.Fprintf(w, "# TYPE ameba_tick gauge\n")
-			fmt.Fprintf(w, "ameba_tick %d\n", tick)
-		})
+			avgE = s / float64(len(organisms))
+		}
+		fmt.Fprintf(w, "# HELP ameba_population Current population\n")
+		fmt.Fprintf(w, "# TYPE ameba_population gauge\n")
+		fmt.Fprintf(w, "ameba_population %d\n", len(organisms))
+		fmt.Fprintf(w, "# HELP ameba_avg_energy Average organism energy\n")
+		fmt.Fprintf(w, "# TYPE ameba_avg_energy gauge\n")
+		fmt.Fprintf(w, "ameba_avg_energy %f\n", avgE)
+		fmt.Fprintf(w, "# HELP ameba_births Total births\n")
+		fmt.Fprintf(w, "# TYPE ameba_births counter\n")
+		fmt.Fprintf(w, "ameba_births %d\n", births)
+		fmt.Fprintf(w, "# HELP ameba_deaths Total deaths\n")
+		fmt.Fprintf(w, "# TYPE ameba_deaths counter\n")
+		fmt.Fprintf(w, "ameba_deaths %d\n", deaths)
+		fmt.Fprintf(w, "# HELP ameba_tick Current tick\n")
+		fmt.Fprintf(w, "# TYPE ameba_tick gauge\n")
+		fmt.Fprintf(w, "ameba_tick %d\n", tick)
+	})
 	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
