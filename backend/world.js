@@ -7,12 +7,13 @@ const ENERGY_DECAY_PER_SEC = 0.01
 const MAX_SPEED = 2.0
 const PREDATION_CONTACT_TIME = 1.0 // seconds
 const HITBOX_SCALE = 8 // world scale factor for distance vs size
-const NEIGHBOR_RADIUS = 100
-const COHESION_FACTOR = 0.08
-const ESCAPE_FACTOR = 0.18
-const WORLD_SIZE = 2000
-const GRID_RESOLUTION = 200
-const CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
+let NEIGHBOR_RADIUS = process.env.NEIGHBOR_RADIUS ? Number(process.env.NEIGHBOR_RADIUS) : 100
+let COHESION_FACTOR = process.env.COHESION_FACTOR ? Number(process.env.COHESION_FACTOR) : 0.08
+let ESCAPE_FACTOR = process.env.ESCAPE_FACTOR ? Number(process.env.ESCAPE_FACTOR) : 0.18
+// make world size and grid resolution configurable via env for easier testing/tuning
+let WORLD_SIZE = process.env.WORLD_SIZE ? Number(process.env.WORLD_SIZE) : 2000
+let GRID_RESOLUTION = process.env.GRID_RESOLUTION ? Number(process.env.GRID_RESOLUTION) : 200
+let CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
 const TEMPERATURE_DECAY = 0.01 // per step
 const FOOD_DECAY = 0.001
 // Quadtree tuning - adjust via env vars if needed
@@ -36,8 +37,8 @@ function saveQuadtreeConfig(conf) {
 }
 
 function reloadQuadtreeConfig() { try { if (fs.existsSync(qcPath)) { qc = JSON.parse(fs.readFileSync(qcPath,'utf8')); if (!process.env.QUADTREE_THRESHOLD) QUADTREE_THRESHOLD = qc.threshold; if (!process.env.QUADTREE_MAX_OBJECTS) QUADTREE_MAX_OBJECTS = qc.maxObjects; if (!process.env.QUADTREE_MAX_LEVEL) QUADTREE_MAX_LEVEL = qc.maxLevel } } catch(e){console.error('reload quadtree err',e)} }
-const FOOD_CONSUMPTION_RATE = 1.2 // how much food removed per second when feeding
-const FOOD_ENERGY_GAIN = 0.5
+let FOOD_CONSUMPTION_RATE = process.env.FOOD_CONSUMPTION_RATE ? Number(process.env.FOOD_CONSUMPTION_RATE) : 1.2 // how much food removed per second when feeding
+let FOOD_ENERGY_GAIN = process.env.FOOD_ENERGY_GAIN ? Number(process.env.FOOD_ENERGY_GAIN) : 0.5
 const MIN_SURVIVAL_ENERGY = 0.02
 const MIN_SIZE = 0.15
 
@@ -70,7 +71,7 @@ function updateOrganism(org, dt, world) {
   org.position.y += org.velocity.vy * dt * 10
 
   // wrap around world edges (simple)
-  const W = 2000
+  const W = WORLD_SIZE
   if (org.position.x < 0) org.position.x += W
   if (org.position.x > W) org.position.x -= W
   if (org.position.y < 0) org.position.y += W
@@ -86,7 +87,9 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
   const contactTimes = contactMap
 
   // spatial hash for neighbor queries
-  const spatial = buildSpatialHash(organisms, CELL_SIZE)
+  // ensure cell size is up-to-date with possible runtime changes
+  CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
+  const spatial = buildSpatialHash(organisms, CELL_SIZE, WORLD_SIZE)
 
   // climate maps updates
   if (worldMaps && worldMaps.temperatureMap) {
@@ -429,6 +432,49 @@ function buildGridIndex(list, cellSize, worldSize = WORLD_SIZE) {
   }
 }
 
+// Utilities: create and persist simple world maps (temperature/food/density)
+function createWorldMaps(resolution = GRID_RESOLUTION) {
+  const grid = []
+  for (let y = 0; y < resolution; y++) grid.push(Array.from({ length: resolution }, () => 0))
+  return {
+    temperatureMap: grid.map(r => r.slice()),
+    foodMap: grid.map(r => r.slice()),
+    densityMap: grid.map(r => r.slice())
+  }
+}
+
+function saveWorldMaps(p, maps) {
+  try {
+    fs.writeFileSync(p, JSON.stringify(maps, null, 2), 'utf8')
+    return true
+  } catch (e) {
+    console.error('saveWorldMaps failed', e)
+    return false
+  }
+}
+
+function loadWorldMaps(p) {
+  try {
+    if (!fs.existsSync(p)) return null
+    const data = JSON.parse(fs.readFileSync(p, 'utf8'))
+    return data
+  } catch (e) {
+    console.error('loadWorldMaps failed', e)
+    return null
+  }
+}
+
+// runtime config apply: allow changing some tunables at runtime (used by admin endpoints)
+function applyRuntimeConfig(conf = {}) {
+  if (conf.WORLD_SIZE) WORLD_SIZE = Number(conf.WORLD_SIZE)
+  if (conf.GRID_RESOLUTION) GRID_RESOLUTION = Number(conf.GRID_RESOLUTION)
+  if (conf.NEIGHBOR_RADIUS) NEIGHBOR_RADIUS = Number(conf.NEIGHBOR_RADIUS)
+  if (conf.FOOD_CONSUMPTION_RATE) FOOD_CONSUMPTION_RATE = Number(conf.FOOD_CONSUMPTION_RATE)
+  if (conf.FOOD_ENERGY_GAIN) FOOD_ENERGY_GAIN = Number(conf.FOOD_ENERGY_GAIN)
+  // recompute cell size
+  CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
+}
+
 // Add a friendly query API onto the Quadtree
 QuadtreeNode.prototype.query = function(pos, radius) {
   const range = { x: pos.x - radius, y: pos.y - radius, w: radius*2, h: radius*2 }
@@ -451,4 +497,25 @@ function tryEvolution(org, events) {
   events.push({ type: 'evolve', id: org.id, traits: org.traits })
 }
 
-module.exports = { updateOrganism, simulateWorldStep, buildSpatialHash, buildGridIndex, QuadtreeNode, WORLD_SIZE, QUADTREE_THRESHOLD, QUADTREE_MAX_OBJECTS, QUADTREE_MAX_LEVEL, saveQuadtreeConfig, reloadQuadtreeConfig }
+module.exports = {
+  updateOrganism,
+  simulateWorldStep,
+  buildSpatialHash,
+  buildGridIndex,
+  QuadtreeNode,
+  WORLD_SIZE,
+  GRID_RESOLUTION,
+  CELL_SIZE,
+  QUADTREE_THRESHOLD,
+  QUADTREE_MAX_OBJECTS,
+  QUADTREE_MAX_LEVEL,
+  saveQuadtreeConfig,
+  reloadQuadtreeConfig,
+  createWorldMaps,
+  saveWorldMaps,
+  loadWorldMaps,
+  applyRuntimeConfig,
+  FOOD_CONSUMPTION_RATE,
+  FOOD_ENERGY_GAIN,
+  NEIGHBOR_RADIUS
+}
