@@ -8,6 +8,7 @@ export default function AdminPage() {
   const [token, setToken] = useState('')
   const [world, setWorld] = useState({ WORLD_SIZE: 2000, GRID_RESOLUTION: 200, NEIGHBOR_RADIUS: 100, COHESION_FACTOR: 0.08, ESCAPE_FACTOR: 0.18, FOOD_CONSUMPTION_RATE: 1.2, FOOD_ENERGY_GAIN: 0.5 })
   const [quadtree, setQuadtree] = useState({ threshold: 128, maxObjects: 8, maxLevel: 6 })
+  const [errors, setErrors] = useState({})
 
   useEffect(() => {
     async function load() {
@@ -34,6 +35,23 @@ export default function AdminPage() {
 
   const updateWorld = (k, v) => setWorld(w => ({ ...w, [k]: v }))
   const updateQuad = (k, v) => setQuadtree(q => ({ ...q, [k]: v }))
+
+  // simple validation for known numeric fields
+  const validate = (cfg) => {
+    const errs = {}
+    if (!Number.isFinite(cfg.WORLD_SIZE) || cfg.WORLD_SIZE < 200 || cfg.WORLD_SIZE > 10000) errs.WORLD_SIZE = '200-10000'
+    if (!Number.isInteger(cfg.GRID_RESOLUTION) || cfg.GRID_RESOLUTION < 20 || cfg.GRID_RESOLUTION > 1000) errs.GRID_RESOLUTION = '20-1000'
+    if (!Number.isFinite(cfg.NEIGHBOR_RADIUS) || cfg.NEIGHBOR_RADIUS < 10 || cfg.NEIGHBOR_RADIUS > (cfg.WORLD_SIZE/2)) errs.NEIGHBOR_RADIUS = '10-WORLD_SIZE/2'
+    if (!Number.isFinite(cfg.COHESION_FACTOR) || cfg.COHESION_FACTOR < 0 || cfg.COHESION_FACTOR > 1) errs.COHESION_FACTOR = '0-1'
+    if (!Number.isFinite(cfg.ESCAPE_FACTOR) || cfg.ESCAPE_FACTOR < 0 || cfg.ESCAPE_FACTOR > 1) errs.ESCAPE_FACTOR = '0-1'
+    if (!Number.isFinite(cfg.FOOD_CONSUMPTION_RATE) || cfg.FOOD_CONSUMPTION_RATE <= 0) errs.FOOD_CONSUMPTION_RATE = '>0'
+    if (!Number.isFinite(cfg.FOOD_ENERGY_GAIN) || cfg.FOOD_ENERGY_GAIN < 0) errs.FOOD_ENERGY_GAIN = '>=0'
+    return errs
+  }
+
+  useEffect(() => {
+    setErrors(validate(world))
+  }, [world])
 
   const saveWorld = async () => {
     setMsg('Saving...')
@@ -111,10 +129,11 @@ export default function AdminPage() {
               <div key={k} style={{ marginBottom: 8 }}>
                 <label style={{ display: 'block', fontSize: 13 }}>{k}</label>
                 <input style={{ width: '100%', padding: 6 }} value={world[k] ?? ''} onChange={e => updateWorld(k, isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value))} />
+                {errors[k] && <div style={{ color: 'crimson', fontSize: 12 }}>{errors[k]}</div>}
               </div>
             ))}
             <div style={{ marginTop: 12 }}>
-              <button onClick={saveWorld} style={{ marginRight: 8 }}>Apply</button>
+              <button onClick={saveWorld} style={{ marginRight: 8 }} disabled={Object.keys(errors).length>0}>Apply</button>
               <button onClick={persistWorld} style={{ marginRight: 8 }}>Persist</button>
               <button onClick={loadPersisted}>Load Persisted</button>
             </div>
