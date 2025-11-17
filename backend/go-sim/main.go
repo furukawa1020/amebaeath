@@ -201,7 +201,9 @@ func main() {
 		avgE := 0.0
 		if len(organisms) > 0 {
 			s := 0.0
-			for _, o := range organisms { s += o.Energy }
+			for _, o := range organisms {
+				s += o.Energy
+			}
 			avgE = s / float64(len(organisms))
 		}
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"tick": tick, "population": len(organisms), "avgEnergy": avgE, "births": births, "deaths": deaths})
