@@ -144,6 +144,27 @@ public class World {
             o.energy -= 0.008 + (0.001 * Math.abs(o.vx) + 0.001 * Math.abs(o.vy));
             o.age += 1;
             if (o.energy <= 0) { o.energy = 0; o.state = "dead"; }
+            // check for nearby food and consume
+            Food eaten = null;
+            for (Food food : foods) {
+                double dx = food.x - o.x; double dy = food.y - o.y;
+                double d2 = dx*dx + dy*dy;
+                if (d2 < (10.0 + o.size)*(10.0 + o.size)) {
+                    eaten = food; break;
+                }
+            }
+            if (eaten != null) {
+                o.energy = Math.min(1.5, o.energy + eaten.energy);
+                foods.remove(eaten);
+                // small chance to reproduce if energy high
+                if (o.energy > 1.1 && rnd.nextDouble() < 0.08) {
+                    Map<String,Object> childTraits = new HashMap<>(o.traits);
+                    // slight mutation
+                    childTraits.put("cohesion", Math.max(0.0, Math.min(1.0, ((Number)childTraits.getOrDefault("cohesion", 0.3)).doubleValue() + (rnd.nextDouble()-0.5)*0.05)));
+                    spawn(childTraits);
+                    o.energy -= 0.4;
+                }
+            }
         }
     }
 
