@@ -118,9 +118,9 @@ func stepWorld() {
 			}
 		}
 	}
-	// spawn random food occasionally
+	// spawn random food occasionally (we are already holding the mutex here)
 	if rand.Float64() < foodSpawnProb {
-		spawnFoodAt(rand.Float64()*width, rand.Float64()*height)
+		spawnFoodAtUnlocked(rand.Float64()*width, rand.Float64()*height)
 	}
 }
 
