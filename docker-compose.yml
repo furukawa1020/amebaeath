@@ -16,10 +16,20 @@ services:
     environment:
       DATABASE_URL: postgres://ameba:ameba@db:5432/amebadb
       USE_RUST: 'false'
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
     ports:
       - '3001:3001'
     depends_on:
       - db
+
+  frontend:
+    build: ./frontend
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: http://backend:3001
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
 
 volumes:
   db-data:

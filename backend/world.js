@@ -593,13 +593,35 @@ function loadWorldMaps(p) {
 
 // runtime config apply: allow changing some tunables at runtime (used by admin endpoints)
 function applyRuntimeConfig(conf = {}) {
-  if (conf.WORLD_SIZE) WORLD_SIZE = Number(conf.WORLD_SIZE)
-  if (conf.GRID_RESOLUTION) GRID_RESOLUTION = Number(conf.GRID_RESOLUTION)
-  if (conf.NEIGHBOR_RADIUS) NEIGHBOR_RADIUS = Number(conf.NEIGHBOR_RADIUS)
-  if (conf.COHESION_FACTOR) COHESION_FACTOR = Number(conf.COHESION_FACTOR)
-  if (conf.ESCAPE_FACTOR) ESCAPE_FACTOR = Number(conf.ESCAPE_FACTOR)
-  if (conf.FOOD_CONSUMPTION_RATE) FOOD_CONSUMPTION_RATE = Number(conf.FOOD_CONSUMPTION_RATE)
-  if (conf.FOOD_ENERGY_GAIN) FOOD_ENERGY_GAIN = Number(conf.FOOD_ENERGY_GAIN)
+  // parse and clamp values to safe ranges
+  if (conf.WORLD_SIZE) {
+    const v = Number(conf.WORLD_SIZE)
+    WORLD_SIZE = Math.max(200, Math.min(10000, isNaN(v) ? WORLD_SIZE : v))
+  }
+  if (conf.GRID_RESOLUTION) {
+    const v = Number(conf.GRID_RESOLUTION)
+    GRID_RESOLUTION = Math.max(20, Math.min(1000, isNaN(v) ? GRID_RESOLUTION : v))
+  }
+  if (conf.NEIGHBOR_RADIUS) {
+    const v = Number(conf.NEIGHBOR_RADIUS)
+    NEIGHBOR_RADIUS = Math.max(10, Math.min(WORLD_SIZE / 2, isNaN(v) ? NEIGHBOR_RADIUS : v))
+  }
+  if (conf.COHESION_FACTOR) {
+    const v = Number(conf.COHESION_FACTOR)
+    COHESION_FACTOR = Math.max(0, Math.min(1, isNaN(v) ? COHESION_FACTOR : v))
+  }
+  if (conf.ESCAPE_FACTOR) {
+    const v = Number(conf.ESCAPE_FACTOR)
+    ESCAPE_FACTOR = Math.max(0, Math.min(1, isNaN(v) ? ESCAPE_FACTOR : v))
+  }
+  if (conf.FOOD_CONSUMPTION_RATE) {
+    const v = Number(conf.FOOD_CONSUMPTION_RATE)
+    FOOD_CONSUMPTION_RATE = Math.max(0.001, Math.min(100, isNaN(v) ? FOOD_CONSUMPTION_RATE : v))
+  }
+  if (conf.FOOD_ENERGY_GAIN) {
+    const v = Number(conf.FOOD_ENERGY_GAIN)
+    FOOD_ENERGY_GAIN = Math.max(0, Math.min(10, isNaN(v) ? FOOD_ENERGY_GAIN : v))
+  }
   // recompute cell size
   CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
 }

@@ -5,6 +5,7 @@ const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
 export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState('')
+  const [token, setToken] = useState('')
   const [world, setWorld] = useState({ WORLD_SIZE: 2000, GRID_RESOLUTION: 200, NEIGHBOR_RADIUS: 100, COHESION_FACTOR: 0.08, ESCAPE_FACTOR: 0.18, FOOD_CONSUMPTION_RATE: 1.2, FOOD_ENERGY_GAIN: 0.5 })
   const [quadtree, setQuadtree] = useState({ threshold: 128, maxObjects: 8, maxLevel: 6 })
 
@@ -14,8 +15,9 @@ export default function AdminPage() {
         const r1 = await fetch(`${API_BASE}/config/world`)
         if (r1.ok) {
           const j = await r1.json()
-          // merge known keys
-          setWorld(w => ({ ...w, ...j }))
+          // server returns { ok: true, config: { ... } }
+          const cfg = j && j.config ? j.config : j
+          setWorld(w => ({ ...w, ...cfg }))
         }
         const r2 = await fetch(`${API_BASE}/config/quadtree`)
         if (r2.ok) {
@@ -36,7 +38,9 @@ export default function AdminPage() {
   const saveWorld = async () => {
     setMsg('Saving...')
     try {
-      const res = await fetch(`${API_BASE}/config/world`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(world) })
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers['x-admin-token'] = token
+      const res = await fetch(`${API_BASE}/config/world`, { method: 'POST', headers, body: JSON.stringify(world) })
       const j = await res.json()
       setMsg(JSON.stringify(j))
     } catch (e) { setMsg('save failed: ' + e.toString()) }
@@ -45,7 +49,9 @@ export default function AdminPage() {
   const persistWorld = async () => {
     setMsg('Persisting...')
     try {
-      const res = await fetch(`${API_BASE}/config/world/persist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(world) })
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers['x-admin-token'] = token
+      const res = await fetch(`${API_BASE}/config/world/persist`, { method: 'POST', headers, body: JSON.stringify(world) })
       const j = await res.json()
       setMsg(JSON.stringify(j))
     } catch (e) { setMsg('persist failed: ' + e.toString()) }
@@ -54,7 +60,9 @@ export default function AdminPage() {
   const loadPersisted = async () => {
     setMsg('Loading persisted...')
     try {
-      const res = await fetch(`${API_BASE}/config/world/persist/load`)
+      const headers = {}
+      if (token) headers['x-admin-token'] = token
+      const res = await fetch(`${API_BASE}/config/world/persist/load`, { headers })
       const j = await res.json()
       if (res.ok && j.loaded) setWorld(w => ({ ...w, ...j.loaded }))
       setMsg(JSON.stringify(j))
@@ -64,7 +72,9 @@ export default function AdminPage() {
   const saveQuadtree = async () => {
     setMsg('Saving quadtree...')
     try {
-      const res = await fetch(`${API_BASE}/config/quadtree`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quadtree) })
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers['x-admin-token'] = token
+      const res = await fetch(`${API_BASE}/config/quadtree`, { method: 'POST', headers, body: JSON.stringify(quadtree) })
       const j = await res.json()
       setMsg(JSON.stringify(j))
     } catch (e) { setMsg('save quad failed: ' + e.toString()) }
@@ -73,11 +83,13 @@ export default function AdminPage() {
   const runAutotune = async () => {
     setMsg('Running autotune...')
     try {
-      const res = await fetch(`${API_BASE}/config/quadtree/autotune`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sizes: [20,50,100], queries: 80 }) })
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers['x-admin-token'] = token
+      const res = await fetch(`${API_BASE}/config/quadtree/autotune`, { method: 'POST', headers, body: JSON.stringify({ sizes: [20,50,100], queries: 80 }) })
       const j = await res.json()
       setMsg(JSON.stringify(j))
       // fetch latest config
-      const conf = await (await fetch(`${API_BASE}/config/quadtree`)).json()
+      const conf = await (await fetch(`${API_BASE}/config/quadtree`, { headers })).json()
       setQuadtree(conf)
     } catch (e) { setMsg('autotune failed: ' + e.toString()) }
   }
@@ -88,6 +100,11 @@ export default function AdminPage() {
       <p>Backend: <code>{API_BASE}</code></p>
       {loading ? <p>Loading...</p> : (
         <div style={{ display: 'flex', gap: 24 }}>
+          <div style={{ width: 300 }}>
+            <h3>Admin Token</h3>
+            <p>Set <code>ADMIN_TOKEN</code> in backend to enable auth. Leave blank for no auth.</p>
+            <input style={{ width: '100%', padding: 6 }} value={token} onChange={e => setToken(e.target.value)} placeholder="admin token" />
+          </div>
           <div style={{ width: 420 }}>
             <h3>World Runtime</h3>
             {Object.entries({ WORLD_SIZE: 'number', GRID_RESOLUTION: 'number', NEIGHBOR_RADIUS: 'number', COHESION_FACTOR: 'number', ESCAPE_FACTOR: 'number', FOOD_CONSUMPTION_RATE: 'number', FOOD_ENERGY_GAIN: 'number' }).map(([k,t]) => (

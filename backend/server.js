@@ -61,6 +61,16 @@ if (REDIS_URL) {
 const { saveQuadtreeConfig, reloadQuadtreeConfig, createWorldMaps, saveWorldMaps, loadWorldMaps, applyRuntimeConfig, saveRuntimeConfig, loadRuntimeConfig, getRuntimeConfig } = require('./world')
 const { execFile } = require('child_process')
 
+// Admin auth middleware: if ADMIN_TOKEN is set, require it for admin endpoints
+function adminAuth(req, res, next) {
+  const token = process.env.ADMIN_TOKEN
+  if (!token) return next()
+  const header = (req.headers['x-admin-token'] || req.headers['authorization'] || '')
+  const incoming = header.startsWith('Bearer ') ? header.slice(7) : header
+  if (incoming === token) return next()
+  return res.status(401).json({ error: 'admin auth required' })
+}
+
 function recordMetrics(currentTick) {
   try {
     const counts = {}
@@ -114,7 +124,7 @@ app.get('/health', (req, res) => {
 })
 
 // Admin: get/update quadtree config (no auth in MVP)
-app.get('/config/quadtree', (req, res) => {
+app.get('/config/quadtree', adminAuth, (req, res) => {
   try {
     const p = path.join(__dirname, 'config', 'quadtree.json')
     if (!fs.existsSync(p)) return res.status(404).json({ error: 'not found' })
@@ -123,7 +133,7 @@ app.get('/config/quadtree', (req, res) => {
   } catch (e) { return res.status(500).json({ error: 'read failed' }) }
 })
 
-app.post('/config/quadtree', (req, res) => {
+app.post('/config/quadtree', adminAuth, (req, res) => {
   const { threshold, maxObjects, maxLevel } = req.body
   try {
     saveQuadtreeConfig({ threshold, maxObjects, maxLevel })
@@ -133,14 +143,14 @@ app.post('/config/quadtree', (req, res) => {
 })
 
 // Admin: get/update world runtime config (WORLD_SIZE, GRID_RESOLUTION, food tunables)
-app.get('/config/world', (req, res) => {
+app.get('/config/world', adminAuth, (req, res) => {
   try {
     const cfg = getRuntimeConfig()
     return res.json({ ok: true, config: cfg })
   } catch (e) { return res.status(500).json({ error: 'read failed' }) }
 })
 
-app.post('/config/world', (req, res) => {
+app.post('/config/world', adminAuth, (req, res) => {
   try {
     applyRuntimeConfig(req.body || {})
     const cfg = getRuntimeConfig()
