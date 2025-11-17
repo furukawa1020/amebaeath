@@ -58,6 +58,10 @@ export default function P5Canvas({ wsUrl }) {
               organisms[i].position = u.position
               organisms[i].velocity = u.velocity
               organisms[i].energy = u.energy
+              // keep client-side state in sync with server authoritative state
+              organisms[i].state = u.state || organisms[i].state
+              organisms[i].size = u.size || organisms[i].size
+              organisms[i].dna_layers = u.dna_layers || organisms[i].dna_layers
             } else {
               organisms.push({ id: u.id, position: u.position, size: u.size })
             }
@@ -69,6 +73,20 @@ export default function P5Canvas({ wsUrl }) {
             }
           })
         })
+
+        // map organism state to visual color
+        function stateToColor(state) {
+          switch ((state || '').toString()) {
+            case 'flee': return [255, 90, 70]
+            case 'hunt': return [220, 80, 180]
+            case 'forage': return [120, 220, 140]
+            case 'low_energy': return [200, 180, 90]
+            case 'sleep': return [80, 120, 200]
+            case 'evolved': return [200, 140, 255]
+            case 'alert': return [255, 200, 80]
+            default: return [200, 150, 220]
+          }
+        }
         socketRef.current.on('spawn', (payload) => {
           const o = payload.organism
           if (!o) return
@@ -252,6 +270,9 @@ export default function P5Canvas({ wsUrl }) {
             const dna = o.dna_layers || []
             const scale = o._scale || 1
             const base = (o.size || 1) * 24 * scale
+            // state color overlay
+            const sc = stateToColor(o.state)
+            const stateAlpha = 200
             for (let li = dna.length - 1; li >= 0; li--) {
               const c = dna[li]
               s.fill(c)
@@ -267,8 +288,8 @@ export default function P5Canvas({ wsUrl }) {
                 s.ellipse(sx, sy, r, r)
               }
             }
-            // amd metaball - blend circles
-            s.fill(200, 150, 220, 200)
+            // metaball - base filled by state color
+            s.fill(sc[0], sc[1], sc[2], stateAlpha)
             s.ellipse(sx, sy, (o.size || 1) * 18, (o.size || 1) * 18)
             // simple eye with state-based shape
             s.fill(10)
@@ -282,6 +303,19 @@ export default function P5Canvas({ wsUrl }) {
               s.ellipse(sx + 4, sy - 4, 3, 3)
             }
           }
+
+            // draw energy bar above organism
+            if (typeof o.energy === 'number') {
+              const bw = 36
+              const bh = 6
+              const ex = sx - bw/2
+              const ey = sy - (o.size || 1) * 12 - 12
+              s.noStroke()
+              s.fill(0, 0, 0, 200)
+              s.rect(ex - 1, ey - 1, bw + 2, bh + 2, 3)
+              s.fill(30, 200, 100)
+              s.rect(ex, ey, clamp((o.energy || 0) * bw, 0, bw), bh, 2)
+            }
 
           // draw touches as heat pulses
           const now = Date.now()
