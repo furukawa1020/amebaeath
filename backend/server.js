@@ -61,9 +61,27 @@ if (REDIS_URL) {
 const { saveQuadtreeConfig, reloadQuadtreeConfig, createWorldMaps, saveWorldMaps, loadWorldMaps, applyRuntimeConfig, WORLD_SIZE: WS, GRID_RESOLUTION: GR, saveRuntimeConfig, loadRuntimeConfig } = require('./world')
 const { execFile } = require('child_process')
 
+function recordMetrics(currentTick) {
+  try {
+    const counts = {}
+    for (const o of organisms) {
+      const s = o.state || 'unknown'
+      counts[s] = (counts[s] || 0) + 1
+    }
+    metricsBuffer[metricsPos] = { tick: currentTick, counts }
+    metricsPos = (metricsPos + 1) % RECENT_METRICS_ROUNDS
+  } catch (e) {
+    console.warn('recordMetrics failed', e)
+  }
+}
+
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
 const spawnCounts = {}
 const touchCounts = {}
+// lightweight runtime metrics: recent state histograms (circular buffer)
+const RECENT_METRICS_ROUNDS = 60 // keep last 60 ticks (~1 minute)
+const metricsBuffer = Array.from({ length: RECENT_METRICS_ROUNDS }, () => ({ tick: 0, counts: {} }))
+let metricsPos = 0
 
 // REST: GET /state
 app.get('/state', async (req, res) => {
@@ -328,6 +346,12 @@ function createOrganism(seedTraits) {
     predation: parseFloat((0.1 + Math.random()*0.5).toFixed(2)),
     warmth_preference: parseFloat((0.2 + Math.random()*0.8).toFixed(2))
   }
+  // behavior profile: small biases to steer decision heuristics
+  const behavior = Object.assign({
+    aggressiveness: (traits.predation || 0.2) + (Math.random()-0.5)*0.2,
+    forageBias: 0.5 + (Math.random()-0.5)*0.4,
+    wanderBias: 0.5 + (Math.random()-0.5)*0.4
+  }, (seedTraits && seedTraits.behavior) ? seedTraits.behavior : {})
   return {
     id,
     position: pos,
@@ -335,6 +359,7 @@ function createOrganism(seedTraits) {
     size: 0.8 + Math.random()*0.7,
     metaballs,
     traits,
+  behavior,
     dna_layers: [color],
     energy: 0.7 + Math.random()*0.3,
     state: 'normal',
@@ -377,7 +402,9 @@ function startWorldLoop() {
       organisms = (parsed.organisms || []).map(o => ({ ...o }))
   // include maps if available
   const maps = parsed.maps || parsed.worldMaps || null
-  io.emit('tick', { tick, updates, maps })
+    // record metrics from authoritative state
+    recordMetrics(tick)
+    io.emit('tick', { tick, updates, maps })
   } else {
       // run local simulation steps
       for (let i = 0; i < 4; i++) {
@@ -406,6 +433,8 @@ function startWorldLoop() {
         }
       }
       const updates = organisms.map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
+      // record metrics for this tick
+      recordMetrics(tick)
       io.emit('tick', { tick, updates, maps: worldMaps })
     }
   } catch (e) {
