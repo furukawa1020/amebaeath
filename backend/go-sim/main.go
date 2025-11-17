@@ -6,8 +6,8 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	"strconv"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -178,7 +178,7 @@ func mutateColor(hex string, magnitude float64) string {
 		h = h[1:]
 	}
 	if len(h) == 3 {
-		h = string(h[0])+string(h[0])+string(h[1])+string(h[1])+string(h[2])+string(h[2])
+		h = string(h[0]) + string(h[0]) + string(h[1]) + string(h[1]) + string(h[2]) + string(h[2])
 	}
 	var val int64
 	if n, err := fmt.Sscanf(h, "%x", &val); n == 1 && err == nil {
@@ -194,9 +194,9 @@ func mutateColor(hex string, magnitude float64) string {
 	g := (v >> 8) & 0xFF
 	b := v & 0xFF
 	change := int(magnitude * 255)
-	r = clampInt(r + int((rand.Float64()-0.5)*2*float64(change)), 0, 255)
-	g = clampInt(g + int((rand.Float64()-0.5)*2*float64(change)), 0, 255)
-	b = clampInt(b + int((rand.Float64()-0.5)*2*float64(change)), 0, 255)
+	r = clampInt(r+int((rand.Float64()-0.5)*2*float64(change)), 0, 255)
+	g = clampInt(g+int((rand.Float64()-0.5)*2*float64(change)), 0, 255)
+	b = clampInt(b+int((rand.Float64()-0.5)*2*float64(change)), 0, 255)
 	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
 }
 
