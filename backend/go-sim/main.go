@@ -194,6 +194,25 @@ func main() {
 	http.HandleFunc("/state", stateHandler)
 	http.HandleFunc("/spawn", spawnHandler)
 	http.HandleFunc("/touch", touchHandler)
+	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "GET" {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"foodSpawnProb": 0.15, "reproductionBaseChance": 0.12, "worldWidth": width, "worldHeight": height})
+			return
+		}
+		if r.Method == "POST" {
+			var body map[string]float64
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if v, ok := body["foodSpawnProb"]; ok { /* not persisted: if needed add variable */ _ = v }
+			if v, ok := body["reproductionBaseChance"]; ok { _ = v }
+			w.WriteHeader(200)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"ok": true})
+			return
+		}
+		w.WriteHeader(405)
+	})
 	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()

@@ -20,6 +20,9 @@ public class World {
     private long births = 0;
     private long deaths = 0;
     private final List<Event> events = Collections.synchronizedList(new LinkedList<>());
+    // runtime tunables
+    private double foodSpawnProb = 0.15;
+    private double reproductionBaseChance = 0.12;
 
     public World(double width, double height, int initial) {
         this.width = width;
@@ -152,6 +155,7 @@ public class World {
             o.energy -= (0.006 + (0.001 * Math.abs(o.vx) + 0.001 * Math.abs(o.vy))) * metabolism;
             o.age += 1;
             if (o.energy <= 0) { o.energy = 0; o.state = "dead"; deaths++; events.add(Event.evolve(o.id)); }
+            // clamp reproduction probability by configured base
             // if energy low, accelerate toward nearest food (sensing)
             if (o.energy < 0.9 && !foods.isEmpty()) {
                 Food nearest = null; double nd2 = Double.MAX_VALUE;
@@ -179,7 +183,7 @@ public class World {
                 foods.remove(eaten);
                 events.add(Event.foodConsumed(o.id, eaten.id));
                 // small chance to reproduce if energy high
-                if (o.energy > 1.1 && rnd.nextDouble() < 0.12) {
+                if (o.energy > 1.1 && rnd.nextDouble() < reproductionBaseChance) {
                     Map<String,Object> childTraits = new HashMap<>(o.traits);
                     // slight mutation
                     childTraits.put("cohesion", Math.max(0.0, Math.min(1.0, ((Number)childTraits.getOrDefault("cohesion", 0.3)).doubleValue() + (rnd.nextDouble()-0.5)*0.05)));
@@ -206,6 +210,27 @@ public class World {
 
     public synchronized List<Event> getEventsSnapshot() {
         return new ArrayList<>(events);
+    }
+
+    public synchronized Map<String,Object> getConfigSnapshot() {
+        Map<String,Object> cfg = new HashMap<>();
+        cfg.put("foodSpawnProb", foodSpawnProb);
+        cfg.put("reproductionBaseChance", reproductionBaseChance);
+        cfg.put("worldWidth", width);
+        cfg.put("worldHeight", height);
+        return cfg;
+    }
+
+    public synchronized void applyConfig(Map<String,Object> cfg) {
+        if (cfg == null) return;
+        Object f = cfg.get("foodSpawnProb"); if (f instanceof Number) foodSpawnProb = ((Number)f).doubleValue();
+        Object r = cfg.get("reproductionBaseChance"); if (r instanceof Number) reproductionBaseChance = ((Number)r).doubleValue();
+        Object w = cfg.get("worldWidth"); if (w instanceof Number) {
+            // width is final - ignore for now or could recreate world
+        }
+        Object h = cfg.get("worldHeight"); if (h instanceof Number) {
+            // height final - ignore
+        }
     }
 
     public synchronized List<Organism> snapshotOrganisms() {

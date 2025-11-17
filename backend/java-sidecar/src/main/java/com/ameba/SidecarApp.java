@@ -69,6 +69,21 @@ public class SidecarApp {
             ctx.json(world.getEventsSnapshot());
         });
 
+        // runtime config endpoints
+        app.get("/config/world", ctx -> {
+            ctx.json(world.getConfigSnapshot());
+        });
+
+        app.post("/config/world", ctx -> {
+            try {
+                Map body = mapper.readValue(ctx.body(), Map.class);
+                world.applyConfig(body);
+                ctx.json(world.getConfigSnapshot());
+            } catch (Exception e) {
+                ctx.status(400).json(mapper.createObjectNode().put("error", "invalid body"));
+            }
+        });
+
         // spawn via Java sidecar
         app.post("/spawn", ctx -> {
             Map seed = null;
