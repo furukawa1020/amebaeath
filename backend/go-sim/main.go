@@ -20,6 +20,7 @@ type Organism struct {
 	State    string             `json:"state"`
 }
 
+
 type Food struct {
 	ID     string  `json:"id"`
 	X      float64 `json:"x"`
