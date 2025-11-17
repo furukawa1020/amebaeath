@@ -209,7 +209,11 @@ export default function P5Canvas({ wsUrl }) {
         }
 
         s.draw = () => {
-          s.background(12, 18, 24)
+          try {
+            s.background(12, 18, 24)
+            // defensive caps to avoid runaway memory/CPU
+            if (pulses.length > 500) pulses.splice(0, pulses.length - 500)
+            if (touches.length > 500) touches.splice(0, touches.length - 500)
           // draw heatmap if available
           if (maps && maps.temperatureMap) {
             const grid = maps.temperatureMap
@@ -264,14 +268,33 @@ export default function P5Canvas({ wsUrl }) {
           }
           if (smoothMetaballs && organisms.length) {
             const cols = 60; const rows = 40
-            const field = computeField(organisms, cols, rows)
-            const polys = marchingSquares(field, cols, rows, 0.5)
-            s.noStroke()
-            s.fill(200, 140, 255, 180)
-            for (const poly of polys) {
-              s.beginShape()
-              for (const v of poly) s.vertex(v.x, v.y)
-              s.endShape(s.CLOSE)
+            // safety: avoid huge allocations / pathological inputs
+            const maxCells = 10000
+            if (cols * rows <= maxCells) {
+              let field = null
+              try {
+                field = computeField(organisms, cols, rows)
+              } catch (e) {
+                console.error('computeField failed', e)
+              }
+              if (field) {
+                let polys = null
+                try {
+                  polys = marchingSquares(field, cols, rows, 0.5)
+                } catch (e) {
+                  console.error('marchingSquares failed', e)
+                  polys = null
+                }
+                if (polys) {
+                  s.noStroke()
+                  s.fill(200, 140, 255, 180)
+                  for (const poly of polys) {
+                    s.beginShape()
+                    for (const v of poly) s.vertex(v.x, v.y)
+                    s.endShape(s.CLOSE)
+                  }
+                }
+              }
             }
           }
 
@@ -344,6 +367,13 @@ export default function P5Canvas({ wsUrl }) {
             s.fill(255, 60, 30, alpha)
             s.ellipse(t.x, t.y, 200 * (1 - age / life), 200 * (1 - age / life))
           }
+        } catch (err) {
+          // prevent full app crash on render-time errors
+          // log and continue (next frame may recover)
+          // use console.error to preserve source mapping in browser
+          console.error('Render loop error', err)
+          try { s.background(12, 18, 24) } catch(e){}
+        }
         }
           // selected panel
           if (selected) {
