@@ -110,9 +110,26 @@ func stepWorld() {
 }
 
 func spawn(seedTraits interface{}) Organism {
+	return spawnWithDna(nil, seedTraits)
+}
+
+func spawnWithDna(dna []string, seedTraits interface{}) Organism {
 	mu.Lock()
 	defer mu.Unlock()
 	id := fmt.Sprintf("g_spawn_%d", time.Now().UnixNano())
+	if dna == nil || len(dna) == 0 {
+		dna = []string{"#88c1ff"}
+	}
+	traits := map[string]float64{}
+	if seedTraits != nil {
+		if smap, ok := seedTraits.(map[string]interface{}); ok {
+			for k, v := range smap {
+				if fv, ok := v.(float64); ok {
+					traits[k] = fv
+				}
+			}
+		}
+	}
 	o := Organism{
 		ID:       id,
 		Position: map[string]float64{"x": rand.Float64() * width, "y": rand.Float64() * height},
