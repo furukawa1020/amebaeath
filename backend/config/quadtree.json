@@ -1,5 +1,5 @@
 {
-  "threshold": 30,
+  "threshold": 1,
   "maxObjects": 8,
   "maxLevel": 6
 }
