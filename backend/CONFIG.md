@@ -1,3 +1,6 @@
+A placeholder for future changes.
+
+<!-- No-op placeholder to ensure file context -->
 Ameba Earth backend - runtime config & world maps
 
 This file documents the runtime endpoints and utilities added to the backend.
