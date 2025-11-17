@@ -35,4 +35,22 @@ public class Event {
         e.at = System.currentTimeMillis();
         return e;
     }
+
+    public static Event birth(String parentId, String childId) {
+        Event e = new Event();
+        e.type = "birth";
+        e.predatorId = parentId; // reusing field for parent
+        e.organismId = childId;  // child
+        e.at = System.currentTimeMillis();
+        return e;
+    }
+
+    public static Event mutation(String organismId, String detail) {
+        Event e = new Event();
+        e.type = "mutation";
+        e.organismId = organismId;
+        e.victimId = detail; // carry mutation detail in victimId field (string)
+        e.at = System.currentTimeMillis();
+        return e;
+    }
 }
