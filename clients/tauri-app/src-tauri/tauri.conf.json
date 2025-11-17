@@ -1,0 +1,20 @@
+{
+  "package": {
+    "productName": "AmebaEarth",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "bundle": {
+      "active": true
+    },
+    "allowlist": {
+      "all": true
+    },
+    "sidecar": {
+      "ameba-sim": {
+        "path": "java",
+        "args": ["-jar", "ameba-sidecar.jar"]
+      }
+    }
+  }
+}
