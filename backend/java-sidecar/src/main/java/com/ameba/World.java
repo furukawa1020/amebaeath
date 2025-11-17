@@ -184,15 +184,83 @@ public class World {
                 events.add(Event.foodConsumed(o.id, eaten.id));
                 // small chance to reproduce if energy high
                 if (o.energy > 1.1 && rnd.nextDouble() < reproductionBaseChance) {
+                    // inherit traits and dna, with small mutation chance
                     Map<String,Object> childTraits = new HashMap<>(o.traits);
-                    // slight mutation
+                    // mutate a numeric trait slightly
                     childTraits.put("cohesion", Math.max(0.0, Math.min(1.0, ((Number)childTraits.getOrDefault("cohesion", 0.3)).doubleValue() + (rnd.nextDouble()-0.5)*0.05)));
-                    Organism child = spawn(childTraits);
+                    // inherit dna layers and apply possible mutation
+                    List<String> parentDna = o.dna_layers != null ? o.dna_layers : List.of("#88c1ff");
+                    double mutationRate = 0.02; // default mutation chance per child
+                    List<String> childDna = mutateDna(parentDna, mutationRate);
+                    // if mutation changed something, record it
+                    if (!childDna.equals(parentDna)) {
+                        events.add(Event.mutation("parent:" + o.id, String.join(",", childDna)));
+                    }
+                    // spawn child near parent
+                    Organism child = new Organism("j_child_" + System.currentTimeMillis(),
+                            Math.max(0, Math.min(width, o.x + (rnd.nextDouble()-0.5)*12.0)),
+                            Math.max(0, Math.min(height, o.y + (rnd.nextDouble()-0.5)*12.0)),
+                            (rnd.nextDouble()-0.5)*0.3,
+                            (rnd.nextDouble()-0.5)*0.3,
+                            Math.max(6.0, o.size * 0.9 + (rnd.nextDouble()-0.5)*1.2),
+                            0.5 + rnd.nextDouble() * 1.0,
+                            childDna,
+                            o.metaballs != null ? o.metaballs : List.of(List.of(0.0,0.0,16.0)),
+                            childTraits,
+                            "normal",
+                            System.currentTimeMillis(),
+                            System.currentTimeMillis() + (24L*3600L*1000L)
+                    );
+                    organisms.add(child);
                     births++;
-                    events.add(Event.evolve(child.id));
+                    events.add(Event.birth(o.id, child.id));
                     o.energy -= 0.45;
                 }
             }
+        }
+    }
+
+    // helper: make a mutated copy of parent dna layers
+    private List<String> mutateDna(List<String> parentDna, double mutationRate) {
+        List<String> out = new ArrayList<>();
+        boolean changed = false;
+        for (String layer : parentDna) {
+            if (rnd.nextDouble() < mutationRate) {
+                // mutate color layer slightly
+                String mutated = mutateColor(layer, 0.08);
+                out.add(mutated);
+                changed = true;
+            } else {
+                out.add(layer);
+            }
+        }
+        // with small chance add or remove a layer
+        if (!changed && rnd.nextDouble() < (mutationRate/3.0)) {
+            // add a new color layer
+            out.add(mutateColor("#88c1ff", 0.15));
+            changed = true;
+        }
+        return out;
+    }
+
+    private String mutateColor(String hex, double magnitude) {
+        try {
+            String h = hex.startsWith("#") ? hex.substring(1) : hex;
+            if (h.length() == 3) {
+                // expand short form
+                h = "" + h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+            }
+            int val = Integer.parseInt(h, 16);
+            int r = (val >> 16) & 0xFF;
+            int g = (val >> 8) & 0xFF;
+            int b = val & 0xFF;
+            int change = (int)(magnitude * 255);
+            r = Math.max(0, Math.min(255, r + (int)((rnd.nextDouble()-0.5)*2*change)));
+            g = Math.max(0, Math.min(255, g + (int)((rnd.nextDouble()-0.5)*2*change)));
+            b = Math.max(0, Math.min(255, b + (int)((rnd.nextDouble()-0.5)*2*change)));
+            return String.format("#%02x%02x%02x", r, g, b);
+        } catch (Exception ex) {
+            return hex;
         }
     }
 
