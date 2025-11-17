@@ -58,7 +58,7 @@ if (REDIS_URL) {
     redisClient = null
   }
 }
-const { saveQuadtreeConfig, reloadQuadtreeConfig, createWorldMaps, saveWorldMaps, loadWorldMaps, applyRuntimeConfig, WORLD_SIZE: WS, GRID_RESOLUTION: GR } = require('./world')
+const { saveQuadtreeConfig, reloadQuadtreeConfig, createWorldMaps, saveWorldMaps, loadWorldMaps, applyRuntimeConfig, WORLD_SIZE: WS, GRID_RESOLUTION: GR, saveRuntimeConfig, loadRuntimeConfig } = require('./world')
 const { execFile } = require('child_process')
 
 // Simple spawn rate-limit per IP (in-memory, reset on restart). Production: persist and use Redis.
@@ -125,6 +125,25 @@ app.post('/config/world', (req, res) => {
   try {
     applyRuntimeConfig(req.body || {})
     return res.json({ ok: true })
+  } catch (e) { return res.status(500).json({ error: e.toString() }) }
+})
+
+app.post('/config/world/persist', (req, res) => {
+  try {
+    const conf = req.body || {}
+    const ok = saveRuntimeConfig(conf)
+    if (!ok) return res.status(500).json({ ok: false })
+    return res.json({ ok: true })
+  } catch (e) { return res.status(500).json({ error: e.toString() }) }
+})
+
+app.get('/config/world/persist/load', (req, res) => {
+  try {
+    const loaded = loadRuntimeConfig()
+    if (!loaded) return res.status(404).json({ ok: false, error: 'no-runtime-config' })
+    // apply on load
+    applyRuntimeConfig(loaded)
+    return res.json({ ok: true, loaded })
   } catch (e) { return res.status(500).json({ error: e.toString() }) }
 })
 

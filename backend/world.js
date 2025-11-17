@@ -244,11 +244,26 @@ function simulateWorldStep(organisms, touchEvents, dt, contactMap = {}, worldMap
 // Not a full AI — small heuristics that adjust velocity toward goals.
 function decideOrganismAction(org, dt, worldMaps, neighbors = []) {
   // parameters (tunable)
+  // parameters (tunable)
   const SEEK_FOOD_ENERGY_THRESHOLD = 0.5
   const HUNT_ENERGY_THRESHOLD = 0.6
-  const WANDER_STRENGTH = 0.02
-  const FLEE_STRENGTH = 0.4
-  const HUNT_STRENGTH = 0.25
+  // base strengths
+  let WANDER_STRENGTH = 0.02
+  let FLEE_STRENGTH = 0.4
+  let HUNT_STRENGTH = 0.25
+  // allow organism traits to bias behaviour if present
+  if (org.traits) {
+    // cohesion/escape are already used elsewhere; use predation trait to bias hunting
+    if (typeof org.traits.predation === 'number') {
+      HUNT_STRENGTH *= (1 + (org.traits.predation - 0.3))
+    }
+    if (typeof org.traits.escape === 'number') {
+      FLEE_STRENGTH *= (1 + (org.traits.escape - 0.15))
+    }
+    if (typeof org.traits.cohesion === 'number') {
+      WANDER_STRENGTH *= (1 - (org.traits.cohesion - 0.3) * 0.4)
+    }
+  }
 
   // if predators nearby (larger organisms), flee
   const threats = neighbors.filter(o => o.size > org.size * 1.15)
@@ -319,6 +334,30 @@ function decideOrganismAction(org, dt, worldMaps, neighbors = []) {
   org.velocity.vx += (Math.random()-0.5) * WANDER_STRENGTH * dt
   org.velocity.vy += (Math.random()-0.5) * WANDER_STRENGTH * dt
   org.state = org.state || 'normal'
+}
+
+// Persist runtime config for world tunables
+const runtimeConfigPath = path.join(__dirname, 'config', 'world.runtime.json')
+function saveRuntimeConfig(conf) {
+  try {
+    const toWrite = Object.assign({}, conf)
+    fs.writeFileSync(runtimeConfigPath, JSON.stringify(toWrite, null, 2), 'utf8')
+    return true
+  } catch (e) {
+    console.error('saveRuntimeConfig failed', e)
+    return false
+  }
+}
+
+function loadRuntimeConfig() {
+  try {
+    if (!fs.existsSync(runtimeConfigPath)) return null
+    const data = JSON.parse(fs.readFileSync(runtimeConfigPath, 'utf8'))
+    return data
+  } catch (e) {
+    console.error('loadRuntimeConfig failed', e)
+    return null
+  }
 }
 
 // Spatial hash helps find neighbors quickly
