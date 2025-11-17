@@ -596,10 +596,29 @@ function applyRuntimeConfig(conf = {}) {
   if (conf.WORLD_SIZE) WORLD_SIZE = Number(conf.WORLD_SIZE)
   if (conf.GRID_RESOLUTION) GRID_RESOLUTION = Number(conf.GRID_RESOLUTION)
   if (conf.NEIGHBOR_RADIUS) NEIGHBOR_RADIUS = Number(conf.NEIGHBOR_RADIUS)
+  if (conf.COHESION_FACTOR) COHESION_FACTOR = Number(conf.COHESION_FACTOR)
+  if (conf.ESCAPE_FACTOR) ESCAPE_FACTOR = Number(conf.ESCAPE_FACTOR)
   if (conf.FOOD_CONSUMPTION_RATE) FOOD_CONSUMPTION_RATE = Number(conf.FOOD_CONSUMPTION_RATE)
   if (conf.FOOD_ENERGY_GAIN) FOOD_ENERGY_GAIN = Number(conf.FOOD_ENERGY_GAIN)
   // recompute cell size
   CELL_SIZE = WORLD_SIZE / GRID_RESOLUTION
+}
+
+// Return current runtime tunables (used by admin UI)
+function getRuntimeConfig() {
+  return {
+    WORLD_SIZE,
+    GRID_RESOLUTION,
+    CELL_SIZE,
+    NEIGHBOR_RADIUS,
+    COHESION_FACTOR,
+    ESCAPE_FACTOR,
+    FOOD_CONSUMPTION_RATE,
+    FOOD_ENERGY_GAIN,
+    QUADTREE_THRESHOLD,
+    QUADTREE_MAX_OBJECTS,
+    QUADTREE_MAX_LEVEL
+  }
 }
 
 // Add a friendly query API onto the Quadtree

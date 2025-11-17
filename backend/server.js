@@ -58,7 +58,7 @@ if (REDIS_URL) {
     redisClient = null
   }
 }
-const { saveQuadtreeConfig, reloadQuadtreeConfig, createWorldMaps, saveWorldMaps, loadWorldMaps, applyRuntimeConfig, WORLD_SIZE: WS, GRID_RESOLUTION: GR, saveRuntimeConfig, loadRuntimeConfig } = require('./world')
+const { saveQuadtreeConfig, reloadQuadtreeConfig, createWorldMaps, saveWorldMaps, loadWorldMaps, applyRuntimeConfig, saveRuntimeConfig, loadRuntimeConfig, getRuntimeConfig } = require('./world')
 const { execFile } = require('child_process')
 
 function recordMetrics(currentTick) {
@@ -135,14 +135,16 @@ app.post('/config/quadtree', (req, res) => {
 // Admin: get/update world runtime config (WORLD_SIZE, GRID_RESOLUTION, food tunables)
 app.get('/config/world', (req, res) => {
   try {
-    return res.json({ ok: true, WORLD_SIZE: WS, GRID_RESOLUTION: GR })
+    const cfg = getRuntimeConfig()
+    return res.json({ ok: true, config: cfg })
   } catch (e) { return res.status(500).json({ error: 'read failed' }) }
 })
 
 app.post('/config/world', (req, res) => {
   try {
     applyRuntimeConfig(req.body || {})
-    return res.json({ ok: true })
+    const cfg = getRuntimeConfig()
+    return res.json({ ok: true, applied: cfg })
   } catch (e) { return res.status(500).json({ error: e.toString() }) }
 })
 
@@ -209,7 +211,19 @@ app.post('/config/quadtree/autotune', (req, res) => {
   execFile(process.execPath, [script], { env, cwd: path.join(__dirname, '.') }, (err, stdout, stderr) => {
     if (err) {
       console.error('autotune failed', err, stderr)
-      return res.status(500).json({ error: 'autotune failed', reason: err.message })
+      // Fallback: attempt to require and run the bench inline (helpful in test envs where child process spawn fails)
+      try {
+        try { delete require.cache[require.resolve(script)] } catch(e) {}
+        require(script)
+        // read recommended file
+        const p = path.join(__dirname, 'config', 'quadtree.json')
+        const conf = JSON.parse(fs.readFileSync(p, 'utf8'))
+        try { reloadQuadtreeConfig() } catch(e) {}
+        return res.json({ ok: true, recommended: conf, output: stdout + '\n(fallback-run)' })
+      } catch (fallbackErr) {
+        console.error('autotune fallback failed', fallbackErr)
+        return res.status(500).json({ error: 'autotune failed', reason: err.message })
+      }
     }
     // read recommended file
     const p = path.join(__dirname, 'config', 'quadtree.json')
