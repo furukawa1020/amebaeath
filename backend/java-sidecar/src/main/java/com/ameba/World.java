@@ -16,14 +16,59 @@ public class World {
         this.width = width;
         this.height = height;
         for (int i = 0; i < initial; i++) {
+            List<String> dna = List.of("#88c1ff");
+            List<List<Double>> metaballs = List.of(List.of(0.0,0.0, 16.0 + rnd.nextDouble()*8.0), List.of(8.0,5.0,10.0 + rnd.nextDouble()*6.0));
+            Map<String,Object> traits = new HashMap<>();
+            traits.put("cohesion", 0.3 + rnd.nextDouble()*0.5);
+            traits.put("escape", 0.15 + rnd.nextDouble()*0.6);
             organisms.add(new Organism("j" + i,
                     rnd.nextDouble() * width,
                     rnd.nextDouble() * height,
+                    (rnd.nextDouble()-0.5)*0.5,
+                    (rnd.nextDouble()-0.5)*0.5,
                     0.8 + rnd.nextDouble() * 1.2,
                     0.5 + rnd.nextDouble() * 1.5,
-                    List.of("#88c1ff"),
-                    "normal"));
+                    dna,
+                    metaballs,
+                    traits,
+                    "normal",
+                    System.currentTimeMillis(),
+                    System.currentTimeMillis() + (24L*3600L*1000L)));
         }
+    }
+
+    public synchronized Organism spawn(Map<String,Object> seedTraits) {
+        int i = organisms.size() + 1;
+        List<String> dna = List.of("#88c1ff");
+        List<List<Double>> metaballs = List.of(List.of(0.0,0.0, 16.0 + rnd.nextDouble()*8.0));
+        Map<String,Object> traits = seedTraits != null ? seedTraits : new HashMap<>();
+        Organism o = new Organism("j_spawn_" + System.currentTimeMillis(),
+                rnd.nextDouble() * width,
+                rnd.nextDouble() * height,
+                (rnd.nextDouble()-0.5)*0.5,
+                (rnd.nextDouble()-0.5)*0.5,
+                0.8 + rnd.nextDouble() * 1.2,
+                0.6 + rnd.nextDouble() * 1.4,
+                dna,
+                metaballs,
+                traits,
+                "normal",
+                System.currentTimeMillis(),
+                System.currentTimeMillis() + (24L*3600L*1000L)
+        );
+        organisms.add(o);
+        return o;
+    }
+
+    public synchronized Map<String,Object> touch(double x, double y, double amplitude, double sigma) {
+        Map<String,Object> touch = new HashMap<>();
+        touch.put("id", "touch_" + System.currentTimeMillis());
+        touch.put("x", x);
+        touch.put("y", y);
+        touch.put("amplitude", amplitude);
+        touch.put("sigma", sigma);
+        touch.put("createdAt", System.currentTimeMillis());
+        return touch;
     }
 
     public synchronized void step() {

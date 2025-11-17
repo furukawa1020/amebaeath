@@ -39,8 +39,10 @@ const worldMaps = {
   densityMap: makeEmptyGrid(GRID_RESOLUTION)
 }
 
-const RUST_URL = process.env.RUST_URL || 'http://localhost:4001'
+const RUST_URL = process.env.RUST_URL || 'http://localhost:6001'
 const USE_RUST = process.env.USE_RUST === 'true'
+const JAVA_URL = process.env.JAVA_URL || 'http://localhost:4001'
+const USE_JAVA = process.env.USE_JAVA === 'true'
 const { Pool } = require('pg')
 const DATABASE_URL = process.env.DATABASE_URL
 let dbPool = null
@@ -95,6 +97,15 @@ let metricsPos = 0
 
 // REST: GET /state
 app.get('/state', async (req, res) => {
+  if (USE_JAVA) {
+    try {
+      const r = await fetch(`${JAVA_URL}/state`)
+      const json = await r.json()
+      return res.json(json)
+    } catch (err) {
+      console.error('Failed to fetch java state', err)
+    }
+  }
   if (USE_RUST) {
     try {
       const r = await fetch(`${RUST_URL}/state`)
@@ -419,17 +430,26 @@ function startWorldLoop() {
   tickInterval = setInterval(async () => {
   tick += 1
   try {
-    if (USE_RUST) {
+    if (USE_JAVA) {
+      const resp = await fetch(`${JAVA_URL}/state`)
+      const parsed = await resp.json()
+      const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
+      organisms = (parsed.organisms || []).map(o => ({ ...o }))
+      // include maps if available
+      const maps = parsed.maps || parsed.worldMaps || null
+      // record metrics from authoritative state
+      recordMetrics(tick)
+      io.emit('tick', { tick, updates, maps })
+    } else if (USE_RUST) {
       const resp = await fetch(`${RUST_URL}/state`)
       const parsed = await resp.json()
       const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
       organisms = (parsed.organisms || []).map(o => ({ ...o }))
   // include maps if available
-  const maps = parsed.maps || parsed.worldMaps || null
-    // record metrics from authoritative state
-    recordMetrics(tick)
-    io.emit('tick', { tick, updates, maps })
-  } else {
+      const maps = parsed.maps || parsed.worldMaps || null
+      recordMetrics(tick)
+      io.emit('tick', { tick, updates, maps })
+    } else {
       // run local simulation steps
       for (let i = 0; i < 4; i++) {
   const res = simulateWorldStep(organisms, TOUCH_EVENTS, 0.25, contactMap, worldMaps)

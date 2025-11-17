@@ -50,6 +50,31 @@ public class SidecarApp {
             ctx.result(mapper.writeValueAsString(root));
         });
 
+        // spawn via Java sidecar
+        app.post("/spawn", ctx -> {
+            Map seed = null;
+            try { seed = mapper.readValue(ctx.body(), Map.class); } catch (Exception ignored) {}
+            Organism o = world.spawn(seed);
+            ObjectNode res = mapper.createObjectNode();
+            res.set("organism", mapper.valueToTree(o));
+            ctx.status(201).result(mapper.writeValueAsString(res));
+        });
+
+        // touch endpoint
+        app.post("/touch", ctx -> {
+            try {
+                Map body = mapper.readValue(ctx.body(), Map.class);
+                double x = ((Number)body.getOrDefault("x", 0)).doubleValue();
+                double y = ((Number)body.getOrDefault("y", 0)).doubleValue();
+                double amplitude = ((Number)body.getOrDefault("amplitude", 0.6)).doubleValue();
+                double sigma = ((Number)body.getOrDefault("sigma", 30)).doubleValue();
+                Map<String,Object> touch = world.touch(x,y,amplitude,sigma);
+                ctx.json(touch);
+            } catch (Exception e) {
+                ctx.status(400).json(mapper.createObjectNode().put("error", "invalid body"));
+            }
+        });
+
         // health
         app.get("/health", ctx -> ctx.json(mapper.createObjectNode().put("ok", true).put("sim", "java-sidecar")));
 
