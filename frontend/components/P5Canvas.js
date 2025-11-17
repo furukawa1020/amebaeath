@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
 import io from 'socket.io-client'
-import anime from 'animejs/lib/anime.es.js'
 
 export default function P5Canvas({ wsUrl }) {
   const canvasRef = useRef(null)
@@ -15,7 +14,10 @@ export default function P5Canvas({ wsUrl }) {
     let p5Instance = null
     let p5 = null
     (async () => {
+      // client-only dynamic imports (avoid SSR/runtime import issues)
       p5 = (await import('p5')).default
+      const anime = (await import('animejs/lib/anime.es.js')).default
+
       p5Instance = new p5((s) => {
         s.setup = () => {
           const el = canvasRef.current
@@ -34,7 +36,8 @@ export default function P5Canvas({ wsUrl }) {
   let selected = null
   let touches = []
 
-        socketRef.current = io(wsUrl)
+  socketRef.current = io(wsUrl)
+  // socket handlers registered after anime is available
         socketRef.current.on('init', (data) => {
           organisms = data.organisms || []
           // initialize local visual state
@@ -65,11 +68,11 @@ export default function P5Canvas({ wsUrl }) {
             } else {
               organisms.push({ id: u.id, position: u.position, size: u.size })
             }
-            // animate breathing using anime.js on update
+            // animate breathing using anime.js on update (anime is client-only)
             const target = organisms.find(x => x.id === u.id)
-            if (target) {
-              anime.remove(target)
-              anime({ targets: target, _scale: [1.0, 1.06, 1.0], duration: 900, easing: 'easeInOutSine' })
+            if (target && typeof anime === 'function') {
+              try { anime.remove(target) } catch(e) { /* ignore */ }
+              try { anime({ targets: target, _scale: [1.0, 1.06, 1.0], duration: 900, easing: 'easeInOutSine' }) } catch(e) { /* ignore */ }
             }
           })
         })
@@ -92,7 +95,7 @@ export default function P5Canvas({ wsUrl }) {
           if (!o) return
           organisms.push(o)
           o._scale = 1
-          anime({ targets: o, _scale: [0.4, 1.0], duration: 700, easing: 'easeOutBack' })
+          try { if (typeof anime === 'function') anime({ targets: o, _scale: [0.4, 1.0], duration: 700, easing: 'easeOutBack' }) } catch(e) {}
         })
         socketRef.current.on('touch', (payload) => {
           // visual pulse
