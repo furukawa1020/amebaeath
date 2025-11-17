@@ -230,6 +230,12 @@ func dnaEqual(a, b []string) bool {
 func spawnFoodAt(x, y float64) Food {
 	mu.Lock()
 	defer mu.Unlock()
+	return spawnFoodAtUnlocked(x, y)
+}
+
+// spawnFoodAtUnlocked appends food without acquiring the global mutex.
+// Call this only when the caller already holds mu.
+func spawnFoodAtUnlocked(x, y float64) Food {
 	f := Food{ID: fmt.Sprintf("f_%d", time.Now().UnixNano()), X: x, Y: y, Energy: 0.4 + rand.Float64()*0.8}
 	foods = append(foods, f)
 	return f
