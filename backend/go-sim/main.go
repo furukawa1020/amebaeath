@@ -29,11 +29,11 @@ type Food struct {
 
 var (
 	mu        sync.Mutex
-	organisms = []Organism{}
-	foods     = []Food{}
+	organisms       = []Organism{}
+	foods           = []Food{}
 	tick      int64 = 0
-	width     = 2000.0
-	height    = 2000.0
+	width           = 2000.0
+	height          = 2000.0
 )
 
 func stepWorld() {
@@ -47,20 +47,31 @@ func stepWorld() {
 			continue
 		}
 		// random small velocity
-		vx := (rand.Float64()-0.5) * 1.0
-		vy := (rand.Float64()-0.5) * 1.0
+		vx := (rand.Float64() - 0.5) * 1.0
+		vy := (rand.Float64() - 0.5) * 1.0
 		o.Position["x"] += vx
 		o.Position["y"] += vy
 		o.V["x"] = vx
 		o.V["y"] = vy
 		// clamp
-		if o.Position["x"] < 0 { o.Position["x"] = 0 }
-		if o.Position["y"] < 0 { o.Position["y"] = 0 }
-		if o.Position["x"] > width { o.Position["x"] = width }
-		if o.Position["y"] > height { o.Position["y"] = height }
+		if o.Position["x"] < 0 {
+			o.Position["x"] = 0
+		}
+		if o.Position["y"] < 0 {
+			o.Position["y"] = 0
+		}
+		if o.Position["x"] > width {
+			o.Position["x"] = width
+		}
+		if o.Position["y"] > height {
+			o.Position["y"] = height
+		}
 		// energy drain
 		o.Energy -= 0.002 + 0.001*(math.Abs(vx)+math.Abs(vy))
-		if o.Energy <= 0 { o.Energy = 0; o.State = "dead" }
+		if o.Energy <= 0 {
+			o.Energy = 0
+			o.State = "dead"
+		}
 		// check food
 		eatenIdx := -1
 		for j, f := range foods {
@@ -72,7 +83,7 @@ func stepWorld() {
 			}
 		}
 		if eatenIdx >= 0 {
-			o.Energy = math.Min(1.5, o.Energy + foods[eatenIdx].Energy)
+			o.Energy = math.Min(1.5, o.Energy+foods[eatenIdx].Energy)
 			// remove food
 			foods = append(foods[:eatenIdx], foods[eatenIdx+1:]...)
 			// reproduction chance
@@ -93,12 +104,12 @@ func spawn(seedTraits interface{}) Organism {
 	defer mu.Unlock()
 	id := fmt.Sprintf("g_spawn_%d", time.Now().UnixNano())
 	o := Organism{
-		ID: id,
-		Position: map[string]float64{"x": rand.Float64()*width, "y": rand.Float64()*height},
-		V: map[string]float64{"x": 0, "y": 0},
-		Size: 8.0 + rand.Float64()*4.0,
-		Energy: 0.6 + rand.Float64()*0.9,
-		State: "normal",
+		ID:       id,
+		Position: map[string]float64{"x": rand.Float64() * width, "y": rand.Float64() * height},
+		V:        map[string]float64{"x": 0, "y": 0},
+		Size:     8.0 + rand.Float64()*4.0,
+		Energy:   0.6 + rand.Float64()*0.9,
+		State:    "normal",
 	}
 	organisms = append(organisms, o)
 	return o
@@ -154,12 +165,18 @@ func touchHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	// initial population
-	for i := 0; i < 20; i++ { spawn(nil) }
-	for i := 0; i < 12; i++ { spawnFoodAt(rand.Float64()*width, rand.Float64()*height) }
+	for i := 0; i < 20; i++ {
+		spawn(nil)
+	}
+	for i := 0; i < 12; i++ {
+		spawnFoodAt(rand.Float64()*width, rand.Float64()*height)
+	}
 	// start tick loop
 	go func() {
 		ticker := time.NewTicker(200 * time.Millisecond)
-		for range ticker.C { stepWorld() }
+		for range ticker.C {
+			stepWorld()
+		}
 	}()
 
 	http.HandleFunc("/state", stateHandler)
