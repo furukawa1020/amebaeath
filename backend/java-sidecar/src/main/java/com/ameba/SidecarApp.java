@@ -46,6 +46,13 @@ public class SidecarApp {
                 oNode.put("state", o.state == null ? "normal" : o.state);
                 arr.add(oNode);
             }
+            // include simple world maps (food list)
+            ArrayNode foods = mapper.createArrayNode();
+            for (Food f : world.getFoodsSnapshot()) {
+                ObjectNode fn = mapper.createObjectNode(); fn.put("id", f.id); fn.put("x", f.x); fn.put("y", f.y); fn.put("energy", f.energy); foods.add(fn);
+            }
+            ObjectNode maps = mapper.createObjectNode(); maps.set("foods", foods);
+            root.set("maps", maps);
             root.set("organisms", arr);
             ctx.result(mapper.writeValueAsString(root));
         });
