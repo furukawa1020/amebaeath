@@ -73,17 +73,59 @@ public class World {
 
     public synchronized void step() {
         tick++;
-        for (Organism o : organisms) {
-            // simple random walk and energy drain
-            o.x += (rnd.nextDouble() - 0.5) * 10.0;
-            o.y += (rnd.nextDouble() - 0.5) * 10.0;
+        // build spatial index
+        SpatialHash sh = new SpatialHash(Math.max(24.0, Math.min(200.0, Math.min(width, height) / 50.0)));
+        for (Organism o : organisms) sh.insert(o);
+
+        // step each organism with simple cohesion/escape behavior
+        List<Organism> snapshot = snapshotOrganisms();
+        for (Organism o : snapshot) {
+            if (o.state != null && o.state.equals("dead")) continue;
+            double neighborRadius = 80.0;
+            List<Organism> neighbors = sh.queryRadius(o.x, o.y, neighborRadius);
+            // compute cohesion: move toward average neighbor position
+            double avgX = 0, avgY = 0; int n = 0;
+            for (Organism nbh : neighbors) {
+                if (nbh == o) continue;
+                if (nbh.state != null && nbh.state.equals("dead")) continue;
+                avgX += nbh.x; avgY += nbh.y; n++;
+            }
+            double cohesion = 0.2; // default
+            double escape = 0.2;
+            if (o.traits != null) {
+                Object c = o.traits.get("cohesion"); if (c instanceof Number) cohesion = ((Number)c).doubleValue();
+                Object e = o.traits.get("escape"); if (e instanceof Number) escape = ((Number)e).doubleValue();
+            }
+            if (n > 0) {
+                avgX /= n; avgY /= n;
+                double dx = (avgX - o.x);
+                double dy = (avgY - o.y);
+                o.vx += (dx * 0.001) * cohesion * 5.0;
+                o.vy += (dy * 0.001) * cohesion * 5.0;
+            }
+            // short-range escape: if neighbor closer than 20px, move away
+            for (Organism nbh : neighbors) {
+                if (nbh == o) continue;
+                double dx = o.x - nbh.x; double dy = o.y - nbh.y;
+                double d2 = dx*dx + dy*dy;
+                if (d2 > 0 && d2 < 20.0*20.0) {
+                    double inv = 1.0 / Math.sqrt(d2);
+                    o.vx += (dx * inv) * (escape * 0.2);
+                    o.vy += (dy * inv) * (escape * 0.2);
+                }
+            }
+            // apply velocity
+            o.x += o.vx;
+            o.y += o.vy;
+            // friction
+            o.vx *= 0.92; o.vy *= 0.92;
+            // bounds
             if (o.x < 0) o.x = 0; if (o.y < 0) o.y = 0;
             if (o.x > width) o.x = width; if (o.y > height) o.y = height;
-            o.energy -= 0.01;
-            if (o.energy <= 0) {
-                o.energy = 0;
-                o.state = "dead";
-            }
+            // energy drain and aging
+            o.energy -= 0.008 + (0.001 * Math.abs(o.vx) + 0.001 * Math.abs(o.vy));
+            o.age += 1;
+            if (o.energy <= 0) { o.energy = 0; o.state = "dead"; }
         }
     }
 
