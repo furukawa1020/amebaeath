@@ -13,6 +13,8 @@ public class World {
     private long tick = 0;
     private final double width;
     private final double height;
+    private final List<Food> foods = Collections.synchronizedList(new ArrayList<>());
+    private final double FOOD_ENERGY = 0.6;
 
     public World(double width, double height, int initial) {
         this.width = width;
@@ -37,6 +39,20 @@ public class World {
                     System.currentTimeMillis(),
                     System.currentTimeMillis() + (24L*3600L*1000L)));
         }
+        // spawn some initial food
+        for (int f = 0; f < Math.max(8, initial/4); f++) {
+            spawnFoodAt(rnd.nextDouble() * width, rnd.nextDouble() * height);
+        }
+    }
+
+    public synchronized Food spawnFoodAt(double x, double y) {
+        Food f = new Food("food_" + System.currentTimeMillis() + "_" + (int)(x)%1000, x, y, FOOD_ENERGY);
+        foods.add(f);
+        return f;
+    }
+
+    public synchronized void spawnFood(int count) {
+        for (int i = 0; i < count; i++) spawnFoodAt(rnd.nextDouble()*width, rnd.nextDouble()*height);
     }
 
     public synchronized Organism spawn(Map<String,Object> seedTraits) {
