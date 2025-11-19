@@ -15,26 +15,45 @@ export default function P5Canvas({ wsUrl }) {
     let p5 = null
     let anime = null
 
-  async function initP5() {
+    async function initP5() {
       if (typeof window === 'undefined') return
+      // allowAnime is defined in the initP5 outer scope so all handlers
+      // inside the p5 instance can read it. It will be set after imports.
+      let allowAnime = false
       try {
         // client-only dynamic imports (avoid SSR/runtime import issues)
         const p5mod = await import('p5')
         p5 = p5mod && p5mod.default ? p5mod.default : p5mod
   const animemod = await import('animejs/lib/anime.es.js')
   anime = animemod && animemod.default ? animemod.default : animemod
-  // Disable anime.js by default in the production bundle to avoid
-  // unexpected traversal/recursion on complex objects. To enable for
-  // local debugging set `window.__AMEBAEATH_ALLOW_ANIME = true` in the
-  // browser console before the app loads.
-  const allowAnimeFlag = !!(typeof window !== 'undefined' && window.__AMEBAEATH_ALLOW_ANIME)
-  const allowAnime = (typeof anime === 'function') && allowAnimeFlag
+        // Disable anime.js by default in the production bundle to avoid
+        // unexpected traversal/recursion on complex objects. To enable for
+        // local debugging set `window.__AMEBAEATH_ALLOW_ANIME = true` in the
+        // browser console before the app loads.
+        const allowAnimeFlag = !!(typeof window !== 'undefined' && window.__AMEBAEATH_ALLOW_ANIME)
+        allowAnime = (typeof anime === 'function') && allowAnimeFlag
       } catch (e) {
         console.error('Failed to dynamically import p5 or animejs', e)
         return
       }
 
       p5Instance = new p5((s) => {
+        console.log('p5 instance created')
+        // counters for diagnostics
+        let __tickCount = 0
+        let __drawCount = 0
+        let __tickResetTimer = null
+        // global error hooks to capture promise rejections and uncaught errors
+        if (typeof window !== 'undefined') {
+          try {
+            window.addEventListener('unhandledrejection', (ev) => {
+              console.error('Unhandled promise rejection (global)', ev.reason, ev.reason && ev.reason.stack)
+            })
+            window.addEventListener('error', (ev) => {
+              console.error('Global window error', ev.message, ev.error && ev.error.stack)
+            })
+          } catch (e) { /* ignore in constrained envs */ }
+        }
         s.setup = () => {
           const el = canvasRef.current
           const w = window.innerWidth
@@ -47,14 +66,41 @@ export default function P5Canvas({ wsUrl }) {
           s.resizeCanvas(window.innerWidth, window.innerHeight)
         }
 
+        // Debug flag: set true to temporarily disable heavy/experimental
+        // visual processing (marching squares, metaballs, pulses) so we can
+        // isolate stack-overflow issues. Toggle to false to re-enable.
+        const DEBUG_DISABLE_HEAVY = true
+
   let organisms = []
   let pulses = []
   let selected = null
   let touches = []
   // maps holds optional heat/food maps sent from the server (temperatureMap, foodMap)
   let maps = null
+    // incoming event queues (bounded)
+    const updatesQueue = []
+    const spawnQueue = []
+    const touchQueue = []
+    let updatesDropped = 0
+    let spawnsDropped = 0
+    let touchesDropped = 0
 
-  socketRef.current = io(wsUrl)
+        // runtime toggle: disable socket events to isolate client-only bugs
+          // For normal operation set DEBUG_DISABLE_SOCKET = false
+          const DEBUG_DISABLE_SOCKET = false
+        if (DEBUG_DISABLE_SOCKET) {
+          console.warn('DEBUG_DISABLE_SOCKET is true: skipping real socket connection')
+          socketRef.current = { on: () => {}, disconnect: () => {} }
+        } else {
+          // ensure single socket instance
+          try {
+            if (socketRef.current) {
+              try { socketRef.current.disconnect() } catch(e){}
+              socketRef.current = null
+            }
+          } catch(e){}
+          socketRef.current = io(wsUrl)
+        }
   // socket handlers registered after anime is available
         socketRef.current.on('init', (data) => {
           organisms = data.organisms || []
@@ -63,36 +109,32 @@ export default function P5Canvas({ wsUrl }) {
         })
         socketRef.current.on('touch', (data) => {
           // touch data: {x,y,amplitude,sigma}
+          if (DEBUG_DISABLE_HEAVY) return
           const worldX = (data.x / 2000) * s.width
           const worldY = (data.y / 2000) * s.height
           touches.push({ x: worldX, y: worldY, amplitude: data.amplitude || 0.6, createdAt: Date.now() })
         })
-        socketRef.current.on('spawn', (data) => {
-          organisms.push(data.organism)
-        })
+        // tick handler: only queue incoming updates. Processing happens in
+        // the draw loop at a bounded rate to avoid synchronous storms.
         socketRef.current.on('tick', (payload) => {
-          const updates = payload.updates || []
-          if (payload.maps) maps = payload.maps
-          updates.forEach(u => {
-            const i = organisms.findIndex(x => x.id === u.id)
-            if (i >= 0) {
-              organisms[i].position = u.position
-              organisms[i].velocity = u.velocity
-              organisms[i].energy = u.energy
-              // keep client-side state in sync with server authoritative state
-              organisms[i].state = u.state || organisms[i].state
-              organisms[i].size = u.size || organisms[i].size
-              organisms[i].dna_layers = u.dna_layers || organisms[i].dna_layers
-            } else {
-              organisms.push({ id: u.id, position: u.position, size: u.size })
+          try {
+            __tickCount += 1
+            // log only occasionally to avoid flooding the console
+            if (!__tickResetTimer) __tickResetTimer = setTimeout(() => { __tickCount = 0; __tickResetTimer = null }, 1000)
+            if (__tickCount % 200 === 0) console.log('socket.tick count (1s window approximation):', __tickCount)
+            const updates = (payload && payload.updates) || []
+            if (payload && payload.maps) maps = payload.maps
+            for (const u of updates) {
+              if (updatesQueue.length >= 5000) {
+                updatesDropped += 1
+                if (updatesDropped % 100 === 0) console.warn('updatesQueue dropping updates:', updatesDropped)
+              } else {
+                updatesQueue.push(u)
+              }
             }
-            // animate breathing using anime.js on update (anime is client-only)
-            const target = organisms.find(x => x.id === u.id)
-            if (target && allowAnime) {
-              try { anime.remove(target) } catch(e) { /* ignore */ }
-              try { anime({ targets: target, _scale: [1.0, 1.06, 1.0], duration: 900, easing: 'easeInOutSine' }) } catch(e) { /* ignore */ }
-            }
-          })
+          } catch (e) {
+            console.error('tick queueing failed', e)
+          }
         })
 
         // map organism state to visual color
@@ -111,11 +153,16 @@ export default function P5Canvas({ wsUrl }) {
         socketRef.current.on('spawn', (payload) => {
           const o = payload.organism
           if (!o) return
+          // ensure new organism has a sane position object
+          if (!o.position || typeof o.position.x !== 'number' || typeof o.position.y !== 'number') {
+            o.position = { x: Number(o.position?.x) || 0, y: Number(o.position?.y) || 0 }
+          }
           organisms.push(o)
           o._scale = 1
           try { if (allowAnime) anime({ targets: o, _scale: [0.4, 1.0], duration: 700, easing: 'easeOutBack' }) } catch(e) {}
         })
         socketRef.current.on('touch', (payload) => {
+          if (DEBUG_DISABLE_HEAVY) return
           // visual pulse
           const p = { x: payload.x, y: payload.y, amplitude: payload.amplitude || 0.6, createdAt: Date.now() }
           pulses.push(p)
@@ -144,15 +191,26 @@ export default function P5Canvas({ wsUrl }) {
           const api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
           const wx = (s.mouseX / s.width) * 2000
           const wy = (s.mouseY / s.height) * 2000
-          // select organism if near
-          const nearest = organisms.reduce((best, o) => {
-            const d = Math.hypot(o.position.x - wx, o.position.y - wy)
-            if (!best || d < best.d) return { o, d }
-            return best
-          }, null)
-          if (nearest && nearest.d < (nearest.o.size || 1) * 20) selected = nearest.o
-          fetch(`${api}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: wx, y: wy }) })
-            .then(r => r.json()).then(d => console.log('touch', d)).catch(e=>console.error(e))
+          // select organism if near (safe: skip organisms without positions)
+          let nearest = null
+          let nearestD = Infinity
+          for (const o of organisms) {
+            if (!o || !o.position) continue
+            const px = o.position.x
+            const py = o.position.y
+            if (typeof px !== 'number' || typeof py !== 'number') continue
+            const d = Math.hypot(px - wx, py - wy)
+            if (d < nearestD) {
+              nearest = o
+              nearestD = d
+            }
+          }
+          if (nearest && nearestD < ((nearest.size || 1) * 20)) selected = nearest
+          // send touch to backend (ensure numeric x/y)
+          try {
+            fetch(`${api}/touch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: Number(wx) || 0, y: Number(wy) || 0 }) })
+              .then(r => r.json()).then(d => console.log('touch', d)).catch(e => console.error(e))
+          } catch (e) { console.error('touch send failed', e) }
         }
 
         // Simple marching squares implementation for metaball smoothing
@@ -216,7 +274,48 @@ export default function P5Canvas({ wsUrl }) {
 
         s.draw = () => {
           try {
+            __drawCount += 1
+            // avoid extremely noisy logging; sample occasionally
+            if (__drawCount % 1000 === 0) console.log('p5.draw', __drawCount)
+            if (__drawCount > 10000) {
+              // if draw called hugely many times in current session, throttle
+              if (__drawCount % 10 !== 0) return
+            }
+          } catch(e) {}
+          try {
             s.background(12, 18, 24)
+            // process a bounded number of queued updates per frame to avoid
+            // doing arbitrarily large synchronous work in the tick handler.
+            const MAX_UPDATES_PER_FRAME = 50
+            let processedUpdates = 0
+            while (updatesQueue.length > 0 && processedUpdates < MAX_UPDATES_PER_FRAME) {
+              const u = updatesQueue.shift()
+              try {
+                if (!u) { processedUpdates++; continue }
+                if (u.position && (typeof u.position.x !== 'number' || typeof u.position.y !== 'number')) {
+                  u.position = { x: Number(u.position.x) || 0, y: Number(u.position.y) || 0 }
+                }
+                const i = organisms.findIndex(x => x.id === u.id)
+                if (i >= 0) {
+                  organisms[i].position = u.position
+                  organisms[i].velocity = u.velocity
+                  organisms[i].energy = u.energy
+                  organisms[i].state = u.state || organisms[i].state
+                  organisms[i].size = u.size || organisms[i].size
+                  organisms[i].dna_layers = u.dna_layers || organisms[i].dna_layers
+                } else {
+                  const newO = { id: u.id, position: u.position, size: u.size }
+                  newO._scale = 1
+                  organisms.push(newO)
+                }
+                if (allowAnime) {
+                  try { const target = organisms.find(x => x.id === u.id); if (target) { anime.remove(target); anime({ targets: target, _scale: [1.0, 1.06, 1.0], duration: 900, easing: 'easeInOutSine' }) } } catch(e){}
+                }
+              } catch (e) {
+                console.error('Error applying queued update', e)
+              }
+              processedUpdates++
+            }
             // defensive caps to avoid runaway memory/CPU
             if (pulses.length > 500) pulses.splice(0, pulses.length - 500)
             if (touches.length > 500) touches.splice(0, touches.length - 500)
@@ -260,19 +359,21 @@ export default function P5Canvas({ wsUrl }) {
             }
           }
           // draw organisms
-          // draw pulses
-          for (let i = pulses.length - 1; i >= 0; i--) {
-            const p = pulses[i]
-            const age = (Date.now() - p.createdAt) / 1000
-            const life = 4 // seconds
-            if (age > life) { pulses.splice(i, 1); continue }
-            const alpha = 200 * (1 - age / life)
-            const rx = s.width * (p.x / 2000)
-            const ry = s.height * (p.y / 2000)
-            s.fill(255, 120, 40, alpha)
-            s.ellipse(rx, ry, p.amplitude * 200 * (1 + age), p.amplitude * 200 * (1 + age))
+          // draw pulses (skip if heavy debug mode enabled)
+          if (!DEBUG_DISABLE_HEAVY) {
+            for (let i = pulses.length - 1; i >= 0; i--) {
+              const p = pulses[i]
+              const age = (Date.now() - p.createdAt) / 1000
+              const life = 4 // seconds
+              if (age > life) { pulses.splice(i, 1); continue }
+              const alpha = 200 * (1 - age / life)
+              const rx = s.width * (p.x / 2000)
+              const ry = s.height * (p.y / 2000)
+              s.fill(255, 120, 40, alpha)
+              s.ellipse(rx, ry, p.amplitude * 200 * (1 + age), p.amplitude * 200 * (1 + age))
+            }
           }
-          if (smoothMetaballs && organisms.length) {
+          if (smoothMetaballs && organisms.length && !DEBUG_DISABLE_HEAVY) {
             const cols = 60; const rows = 40
             // safety: avoid huge allocations / pathological inputs
             const maxCells = 10000
@@ -362,16 +463,18 @@ export default function P5Canvas({ wsUrl }) {
             }
           }
 
-          // draw touches as heat pulses
-          const now = Date.now()
-          for (let i = touches.length-1; i >= 0; i--) {
-            const t = touches[i]
-            const age = (now - t.createdAt) / 1000
-            const life = 3.0
-            if (age > life) { touches.splice(i,1); continue }
-            const alpha = 200 * (1 - age / life) * t.amplitude
-            s.fill(255, 60, 30, alpha)
-            s.ellipse(t.x, t.y, 200 * (1 - age / life), 200 * (1 - age / life))
+          // draw touches as heat pulses (skip in heavy-debug)
+          if (!DEBUG_DISABLE_HEAVY) {
+            const now = Date.now()
+            for (let i = touches.length-1; i >= 0; i--) {
+              const t = touches[i]
+              const age = (now - t.createdAt) / 1000
+              const life = 3.0
+              if (age > life) { touches.splice(i,1); continue }
+              const alpha = 200 * (1 - age / life) * t.amplitude
+              s.fill(255, 60, 30, alpha)
+              s.ellipse(t.x, t.y, 200 * (1 - age / life), 200 * (1 - age / life))
+            }
           }
         } catch (err) {
           // prevent full app crash on render-time errors

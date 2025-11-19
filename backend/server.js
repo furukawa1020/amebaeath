@@ -377,10 +377,28 @@ app.post('/touch', (req, res) => {
   if (typeof x !== 'number' || typeof y !== 'number') return res.status(400).json({ error: 'x,y required' })
   const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown'
   const tnow = Date.now()
-  touchCounts[ip] = touchCounts[ip] || []
-  touchCounts[ip] = touchCounts[ip].filter(ts => tnow - ts < 60000)
-  if (touchCounts[ip].length > 60) return res.status(429).json({ error: 'touch rate limit exceeded' })
-  touchCounts[ip].push(tnow)
+  console.log('POST /touch incoming ip=', ip, 'type=', typeof ip, 'existingTouchEntryType=', (touchCounts[ip] === undefined ? 'undefined' : typeof touchCounts[ip]))
+  try {
+    // Coerce entry to an array if it's not one (defensive against accidental mutation)
+    if (!Array.isArray(touchCounts[ip])) {
+      // If it's null/undefined or some other primitive/object, replace with empty array
+      console.warn('touchCounts: coercing non-array entry to array for ip=', ip, 'currentValue=', touchCounts[ip])
+      touchCounts[ip] = []
+    }
+    // Keep only recent events (last 60s)
+    touchCounts[ip] = touchCounts[ip].filter(ts => (typeof ts === 'number') && (tnow - ts < 60000))
+    if (touchCounts[ip].length > 60) return res.status(429).json({ error: 'touch rate limit exceeded' })
+    // push with guard
+    try {
+      touchCounts[ip].push(tnow)
+    } catch (pushErr) {
+      console.error('touchCounts push failed, replacing entry with new array', pushErr, 'currentValue=', touchCounts[ip])
+      touchCounts[ip] = [tnow]
+    }
+  } catch (e) {
+    console.error('touchCounts handling failed, resetting entry for ip=', ip, e)
+    touchCounts[ip] = [tnow]
+  }
   (async () => {
     try {
       if (USE_JAVA) {
