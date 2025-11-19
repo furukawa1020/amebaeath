@@ -4,8 +4,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-lock.yaml
-package-lock.json
-!frontend/package-lock.json
+# Keep package-lock.json as it is good practice, but user can exclude if desired.
+# package-lock.json
 yarn.lock
 
 # Next.js / build
@@ -23,24 +23,59 @@ build/
 # Logs
 logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
 # OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
 
 # IDE
 .vscode/
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # Test / cache
 coverage/
 .cache/
 tmp/
+.nyc_output/
 
 # Misc
 *.tgz
 *.swp
 Makefile
-frontend/.next/
+*.bak
+*.tmp
+*.temp
+
+# Backend specific
+backend/config/*.json
+!backend/config/quadtree.json
+!backend/config/world_maps.json
 backend/rust/target/
-node_modules/
+backend/rust/Cargo.lock
+backend-rust/target/
+backend-rust/Cargo.lock
+target/
+**/*.rs.bk
+
+# Frontend specific
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.vercel/

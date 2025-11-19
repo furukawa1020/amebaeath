@@ -29,7 +29,7 @@ let contactMap = {}
 // world maps (temperature/food/density) - used for climate and visualization
 function makeEmptyGrid(res) {
   const grid = []
-  for (let y = 0; y < res; y++) grid.push(Array.from({length: res}, () => 0))
+  for (let y = 0; y < res; y++) grid.push(Array.from({ length: res }, () => 0))
   return grid
 }
 const GRID_RESOLUTION = 200
@@ -133,9 +133,9 @@ app.get('/state', async (req, res) => {
 // lightweight stats endpoint for dashboards
 app.get('/stats', (req, res) => {
   const total = organisms.length
-  const avgEnergy = total ? organisms.reduce((s,o) => s + (o.energy||0), 0) / total : 0
-  const avgSize = total ? organisms.reduce((s,o) => s + (o.size||0), 0) / total : 0
-  const largest = organisms.slice().sort((a,b)=>b.size-a.size).slice(0,5).map(o => ({ id: o.id, size: o.size }))
+  const avgEnergy = total ? organisms.reduce((s, o) => s + (o.energy || 0), 0) / total : 0
+  const avgSize = total ? organisms.reduce((s, o) => s + (o.size || 0), 0) / total : 0
+  const largest = organisms.slice().sort((a, b) => b.size - a.size).slice(0, 5).map(o => ({ id: o.id, size: o.size }))
   res.json({ tick, total, avgEnergy, avgSize, largest })
 })
 
@@ -246,12 +246,12 @@ app.post('/config/quadtree/autotune', (req, res) => {
       console.error('autotune failed', err, stderr)
       // Fallback: attempt to require and run the bench inline (helpful in test envs where child process spawn fails)
       try {
-        try { delete require.cache[require.resolve(script)] } catch(e) {}
+        try { delete require.cache[require.resolve(script)] } catch (e) { }
         require(script)
         // read recommended file
         const p = path.join(__dirname, 'config', 'quadtree.json')
         const conf = JSON.parse(fs.readFileSync(p, 'utf8'))
-        try { reloadQuadtreeConfig() } catch(e) {}
+        try { reloadQuadtreeConfig() } catch (e) { }
         return res.json({ ok: true, recommended: conf, output: stdout + '\n(fallback-run)' })
       } catch (fallbackErr) {
         console.error('autotune fallback failed', fallbackErr)
@@ -275,7 +275,7 @@ app.post('/config/quadtree/autotune', (req, res) => {
 app.post('/spawn', async (req, res) => {
   const ip = (req.headers['x-forwarded-for'] || req.ip || 'unknown')
   console.log('POST /spawn ip', ip, 'DB?', !!dbPool)
-  const today = new Date().toISOString().slice(0,10)
+  const today = new Date().toISOString().slice(0, 10)
   try {
     // Use Redis if available for distributed counters
     if (redisClient) {
@@ -285,14 +285,14 @@ app.post('/spawn', async (req, res) => {
         if (Number(count) === 1) {
           // set expiry until midnight
           const now = new Date()
-          const ttl = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()+1) - now) / 1000)
+          const ttl = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now) / 1000)
           await redisClient.expire(key, ttl)
         }
         if (Number(count) > 1) return res.status(429).json({ error: 'spawn limit reached for today (redis)' })
       } catch (err) {
         console.warn('redis error on spawn, falling back', err)
         // disable redis for future tries to avoid repeated timeouts
-        try { if (redisClient) redisClient.disconnect() } catch(e){}
+        try { if (redisClient) redisClient.disconnect() } catch (e) { }
         redisClient = null
       }
     }
@@ -310,14 +310,16 @@ app.post('/spawn', async (req, res) => {
         // Database may not be available in test env; fallback to in-memory
         console.warn('db spawn upsert failed; using in-memory fallback', dbErr && dbErr.message)
         spawnCounts[ip] = spawnCounts[ip] || {}
-        spawnCounts[ip][today] = spawnCounts[ip][today] || 0
+        spawnCounts[ip][today] = (spawnCounts[ip][today] || 0)
+        console.log(`DEBUG: spawn check (db-fallback) ip=${ip} count=${spawnCounts[ip][today]}`)
         if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
         spawnCounts[ip][today] += 1
       }
     } else {
       // No DB: use in-memory per-ip/day counter (reset on restart)
       spawnCounts[ip] = spawnCounts[ip] || {}
-      spawnCounts[ip][today] = spawnCounts[ip][today] || 0
+      spawnCounts[ip][today] = (spawnCounts[ip][today] || 0)
+      console.log(`DEBUG: spawn check (in-memory) ip=${ip} count=${spawnCounts[ip][today]}`)
       if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
       spawnCounts[ip][today] += 1
     }
@@ -439,41 +441,41 @@ app.post('/touch', (req, res) => {
 function createOrganism(seedTraits) {
   const id = uuidv4()
   const pos = { x: Math.random() * 2000, y: Math.random() * 2000 }
-  const metaballs = [ [0,0,16 + Math.random()*8], [8,5,10 + Math.random()*6], [-7,6,8+Math.random()*5] ]
+  const metaballs = [[0, 0, 16 + Math.random() * 8], [8, 5, 10 + Math.random() * 6], [-7, 6, 8 + Math.random() * 5]]
   const color = randomColor()
   const traits = seedTraits || {
-    cohesion: parseFloat((0.3 + Math.random()*0.5).toFixed(2)),
-    escape: parseFloat((0.15 + Math.random()*0.6).toFixed(2)),
-    predation: parseFloat((0.1 + Math.random()*0.5).toFixed(2)),
-    warmth_preference: parseFloat((0.2 + Math.random()*0.8).toFixed(2))
+    cohesion: parseFloat((0.3 + Math.random() * 0.5).toFixed(2)),
+    escape: parseFloat((0.15 + Math.random() * 0.6).toFixed(2)),
+    predation: parseFloat((0.1 + Math.random() * 0.5).toFixed(2)),
+    warmth_preference: parseFloat((0.2 + Math.random() * 0.8).toFixed(2))
   }
   // behavior profile: small biases to steer decision heuristics
   const behavior = Object.assign({
-    aggressiveness: (traits.predation || 0.2) + (Math.random()-0.5)*0.2,
-    forageBias: 0.5 + (Math.random()-0.5)*0.4,
-    wanderBias: 0.5 + (Math.random()-0.5)*0.4
+    aggressiveness: (traits.predation || 0.2) + (Math.random() - 0.5) * 0.2,
+    forageBias: 0.5 + (Math.random() - 0.5) * 0.4,
+    wanderBias: 0.5 + (Math.random() - 0.5) * 0.4
   }, (seedTraits && seedTraits.behavior) ? seedTraits.behavior : {})
   return {
     id,
     position: pos,
-    velocity: { vx: (Math.random()-0.5)*0.4, vy: (Math.random()-0.5)*0.4 },
-    size: 0.8 + Math.random()*0.7,
+    velocity: { vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4 },
+    size: 0.8 + Math.random() * 0.7,
     metaballs,
     traits,
-  behavior,
+    behavior,
     dna_layers: [color],
-    energy: 0.7 + Math.random()*0.3,
+    energy: 0.7 + Math.random() * 0.3,
     state: 'normal',
     age: 0,
     spawnedAt: Date.now(),
     lastUpdated: Date.now()
-    ,expiresAt: Date.now() + (24*3600*1000) + Math.random() * 24*3600*1000 // 24-48h
+    , expiresAt: Date.now() + (24 * 3600 * 1000) + Math.random() * 24 * 3600 * 1000 // 24-48h
   }
 }
 
 function randomColor() {
-  const palette = ['#88c1ff','#ffccaa','#b8f4a6','#f4b6c2','#ffeeaa','#c8a2ff','#ffd1dc','#aaffc3','#ffe4b5','#ffd27f']
-  return palette[Math.floor(Math.random()*palette.length)]
+  const palette = ['#88c1ff', '#ffccaa', '#b8f4a6', '#f4b6c2', '#ffeeaa', '#c8a2ff', '#ffd1dc', '#aaffc3', '#ffe4b5', '#ffd27f']
+  return palette[Math.floor(Math.random() * palette.length)]
 }
 
 // socket.io connections
@@ -494,62 +496,62 @@ let tickInterval = null
 function startWorldLoop() {
   if (tickInterval) return
   tickInterval = setInterval(async () => {
-  tick += 1
-  try {
-    if (USE_JAVA) {
-      const resp = await fetch(`${JAVA_URL}/state`)
-      const parsed = await resp.json()
-      const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
-      organisms = (parsed.organisms || []).map(o => ({ ...o }))
-      // include maps if available
-      const maps = parsed.maps || parsed.worldMaps || null
-      // record metrics from authoritative state
-      recordMetrics(tick)
-      io.emit('tick', { tick, updates, maps })
-    } else if (USE_RUST) {
-      const resp = await fetch(`${RUST_URL}/state`)
-      const parsed = await resp.json()
-      const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
-      organisms = (parsed.organisms || []).map(o => ({ ...o }))
-  // include maps if available
-      const maps = parsed.maps || parsed.worldMaps || null
-      recordMetrics(tick)
-      io.emit('tick', { tick, updates, maps })
-    } else {
-      // run local simulation steps
-      for (let i = 0; i < 4; i++) {
-  const res = simulateWorldStep(organisms, TOUCH_EVENTS, 0.25, contactMap, worldMaps)
-        if (res && res.events && res.events.length) {
-          for (const e of res.events) {
-            io.emit(e.type, e)
-            // persist predation and evolve to DB if available
-            if (dbPool && e.type === 'predation') {
-              try {
-                await dbPool.query('DELETE FROM organisms WHERE id = $1', [e.victimId])
-                await dbPool.query('UPDATE organisms SET data = $1, updated_at = now() WHERE id = $2', [ JSON.stringify(organisms.find(o=>o.id===e.predatorId) || {}), e.predatorId ])
-              } catch (err) { console.error('db predation persist error', err) }
-            }
-            if (dbPool && e.type === 'evolve') {
-              try {
-                await dbPool.query('UPDATE organisms SET data = $1, updated_at = now() WHERE id = $2', [ JSON.stringify(organisms.find(o=>o.id===e.id) || {}), e.id ])
-              } catch (err) { console.error('db evolve persist error', err) }
-            }
+    tick += 1
+    try {
+      if (USE_JAVA) {
+        const resp = await fetch(`${JAVA_URL}/state`)
+        const parsed = await resp.json()
+        const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
+        organisms = (parsed.organisms || []).map(o => ({ ...o }))
+        // include maps if available
+        const maps = parsed.maps || parsed.worldMaps || null
+        // record metrics from authoritative state
+        recordMetrics(tick)
+        io.emit('tick', { tick, updates, maps })
+      } else if (USE_RUST) {
+        const resp = await fetch(`${RUST_URL}/state`)
+        const parsed = await resp.json()
+        const updates = (parsed.organisms || []).map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
+        organisms = (parsed.organisms || []).map(o => ({ ...o }))
+        // include maps if available
+        const maps = parsed.maps || parsed.worldMaps || null
+        recordMetrics(tick)
+        io.emit('tick', { tick, updates, maps })
+      } else {
+        // run local simulation steps
+        for (let i = 0; i < 4; i++) {
+          const res = simulateWorldStep(organisms, TOUCH_EVENTS, 0.25, contactMap, worldMaps)
+          if (res && res.events && res.events.length) {
+            for (const e of res.events) {
+              io.emit(e.type, e)
+              // persist predation and evolve to DB if available
+              if (dbPool && e.type === 'predation') {
+                try {
+                  await dbPool.query('DELETE FROM organisms WHERE id = $1', [e.victimId])
+                  await dbPool.query('UPDATE organisms SET data = $1, updated_at = now() WHERE id = $2', [JSON.stringify(organisms.find(o => o.id === e.predatorId) || {}), e.predatorId])
+                } catch (err) { console.error('db predation persist error', err) }
+              }
+              if (dbPool && e.type === 'evolve') {
+                try {
+                  await dbPool.query('UPDATE organisms SET data = $1, updated_at = now() WHERE id = $2', [JSON.stringify(organisms.find(o => o.id === e.id) || {}), e.id])
+                } catch (err) { console.error('db evolve persist error', err) }
+              }
               if (dbPool && e.type === 'expired') {
                 try {
                   await dbPool.query('DELETE FROM organisms WHERE id = $1', [e.id])
                 } catch (err) { console.error('db expire persist error', err) }
               }
+            }
           }
         }
+        const updates = organisms.map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
+        // record metrics for this tick
+        recordMetrics(tick)
+        io.emit('tick', { tick, updates, maps: worldMaps })
       }
-      const updates = organisms.map(o => ({ id: o.id, position: o.position, velocity: o.velocity, energy: o.energy, state: o.state, size: o.size }))
-      // record metrics for this tick
-      recordMetrics(tick)
-      io.emit('tick', { tick, updates, maps: worldMaps })
+    } catch (e) {
+      console.error('tick loop error', e && e.stack ? e.stack : e.toString())
     }
-  } catch (e) {
-    console.error('tick loop error', e && e.stack ? e.stack : e.toString())
-  }
   }, 1000)
 }
 
@@ -564,12 +566,12 @@ let persistInterval = null
 function startPersistLoop() {
   if (persistInterval) return
   persistInterval = setInterval(async () => {
-  if (!dbPool) return
-  try {
-  await dbPool.query('INSERT INTO world_state (tick, temperature_map, food_map, density_map, last_tick_at) VALUES ($1,$2,$3,$4,NOW())', [tick, JSON.stringify(worldMaps.temperatureMap), JSON.stringify(worldMaps.foodMap), JSON.stringify(worldMaps.densityMap)])
-  } catch (e) {
-    console.error('persist error', e)
-  }
+    if (!dbPool) return
+    try {
+      await dbPool.query('INSERT INTO world_state (tick, temperature_map, food_map, density_map, last_tick_at) VALUES ($1,$2,$3,$4,NOW())', [tick, JSON.stringify(worldMaps.temperatureMap), JSON.stringify(worldMaps.foodMap), JSON.stringify(worldMaps.densityMap)])
+    } catch (e) {
+      console.error('persist error', e)
+    }
   }, 60 * 1000)
 }
 
