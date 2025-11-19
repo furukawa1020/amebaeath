@@ -1,8 +1,12 @@
-# Exclude build artifacts and generated files from GitHub language stats
-frontend/.next/** linguist-vendored
-backend/rust/target/** linguist-vendored
-node_modules/** linguist-vendored
+# Exclude Rust backend from language statistics
+backend/rust/** linguist-vendored
+backend-rust/** linguist-vendored
 
-# Also mark as generated where appropriate
-frontend/.next/** linguist-generated
-backend/rust/target/** linguist-generated
+# Exclude JSON config files
+*.json linguist-vendored
+
+# Exclude documentation
+docs/** linguist-documentation
+
+# Ensure Makefile is ignored if it ever reappears
+Makefile linguist-generated
