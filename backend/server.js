@@ -311,7 +311,6 @@ app.post('/spawn', async (req, res) => {
         console.warn('db spawn upsert failed; using in-memory fallback', dbErr && dbErr.message)
         spawnCounts[ip] = spawnCounts[ip] || {}
         spawnCounts[ip][today] = (spawnCounts[ip][today] || 0)
-        console.log(`DEBUG: spawn check (db-fallback) ip=${ip} count=${spawnCounts[ip][today]}`)
         if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
         spawnCounts[ip][today] += 1
       }
@@ -319,7 +318,6 @@ app.post('/spawn', async (req, res) => {
       // No DB: use in-memory per-ip/day counter (reset on restart)
       spawnCounts[ip] = spawnCounts[ip] || {}
       spawnCounts[ip][today] = (spawnCounts[ip][today] || 0)
-      console.log(`DEBUG: spawn check (in-memory) ip=${ip} count=${spawnCounts[ip][today]}`)
       if (spawnCounts[ip][today] >= 1) return res.status(429).json({ error: 'spawn limit reached for today' })
       spawnCounts[ip][today] += 1
     }
