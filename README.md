@@ -29,6 +29,14 @@ Ameba Earth is a Java-based artificial life simulation that models the evolution
 
 This script will automatically compile the Java source files and launch the simulation window.
 
+## 📦 Download & Run (No Compilation Needed)
+
+If you don't want to compile the code yourself, you can simply download the latest executable:
+
+1.  Go to the [Releases](../../releases) page of this repository.
+2.  Download **`AmebaEarth.jar`**.
+3.  Double-click the file to run (requires Java installed).
+
 ## Controls
 
 -   The simulation runs automatically.
