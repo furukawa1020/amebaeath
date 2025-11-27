@@ -1,6 +1,8 @@
-# Ameba Earth
+# Ameba Earth 〜東京の気温に翻弄される小さな命達〜
 
-Ameba Earth is a Java-based artificial life simulation that models the evolution and interaction of soft-body amoeba-like creatures. It combines physics-based movement, genetic evolution, and real-time environmental data to create a dynamic and "cute" ecosystem.
+Javaで作られた、ぷにぷに動く人工生命シミュレーション。
+最大の特徴は「現実世界とのリンク」。リアルタイムの東京の気温を取得し、アメーバたちの生態系や食料事情が変化します。
+物理演算で描かれる、美しくも過酷な「小さな地球」を観察してみませんか？
 
 ## Features
 
