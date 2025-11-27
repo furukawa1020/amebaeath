@@ -1,6 +1,5 @@
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.util.List;
 
 public class Renderer {
     BufferedImage buffer;
@@ -16,12 +15,16 @@ public class Renderer {
 
     public void draw(Graphics g, Simulation sim) {
         // Metaball rendering
-        // For performance, we only scan bounding boxes of amoebas, or just do a full pass if optimized.
+        // For performance, we only scan bounding boxes of amoebas, or just do a full
+        // pass if optimized.
         // Java software rendering is slow for full screen per-pixel metaballs.
-        // We will use a "blob" sprite approach or a lower resolution field for performance, 
-        // OR we can draw radial gradients for each node and threshold the alpha channel.
-        
-        // Approach: Draw radial gradients for all nodes onto an offscreen image, then threshold.
+        // We will use a "blob" sprite approach or a lower resolution field for
+        // performance,
+        // OR we can draw radial gradients for each node and threshold the alpha
+        // channel.
+
+        // Approach: Draw radial gradients for all nodes onto an offscreen image, then
+        // threshold.
         Graphics2D g2d = buffer.createGraphics();
         g2d.setComposite(AlphaComposite.Clear);
         g2d.fillRect(0, 0, width, height);
@@ -29,15 +32,18 @@ public class Renderer {
 
         // Draw "influence" blobs
         for (Amoeba a : sim.amoebas) {
+            Color c = a.genes.color;
+            Color centerColor = new Color(c.getRed(), c.getGreen(), c.getBlue(), 255);
+            Color edgeColor = new Color(c.getRed(), c.getGreen(), c.getBlue(), 0);
+
             for (Node n : a.nodes) {
                 float r = n.radius * 2.5f; // Influence radius
                 RadialGradientPaint rgp = new RadialGradientPaint(
-                    n.pos.x, n.pos.y, r,
-                    new float[]{0.0f, 1.0f},
-                    new Color[]{new Color(0, 255, 255, 255), new Color(0, 255, 255, 0)}
-                );
+                        n.pos.x, n.pos.y, r,
+                        new float[] { 0.0f, 1.0f },
+                        new Color[] { centerColor, edgeColor });
                 g2d.setPaint(rgp);
-                g2d.fillOval((int)(n.pos.x - r), (int)(n.pos.y - r), (int)(r * 2), (int)(r * 2));
+                g2d.fillOval((int) (n.pos.x - r), (int) (n.pos.y - r), (int) (r * 2), (int) (r * 2));
             }
         }
         g2d.dispose();
@@ -47,9 +53,15 @@ public class Renderer {
         for (int i = 0; i < pixels.length; i++) {
             int alpha = (pixels[i] >> 24) & 0xff;
             if (alpha > 150) { // Threshold
-                pixels[i] = 0xFF00FFFF; // Cyan color
+                // Keep original color but ensure full alpha
+                pixels[i] = (0xFF << 24) | (pixels[i] & 0x00FFFFFF);
             } else if (alpha > 130) {
-                pixels[i] = 0xFF00AAAA; // Darker edge
+                // Darker edge
+                int col = pixels[i] & 0x00FFFFFF;
+                int r = (col >> 16) & 0xff;
+                int green = (col >> 8) & 0xff;
+                int b = col & 0xff;
+                pixels[i] = (0xFF << 24) | ((r / 2) << 16) | ((green / 2) << 8) | (b / 2);
             } else {
                 pixels[i] = 0x00000000; // Transparent
             }
@@ -64,7 +76,7 @@ public class Renderer {
         // Draw Food
         g.setColor(Color.GREEN);
         for (Food f : sim.foods) {
-            g.fillOval((int)f.pos.x - 3, (int)f.pos.y - 3, 6, 6);
+            g.fillOval((int) f.pos.x - 3, (int) f.pos.y - 3, 6, 6);
         }
 
         // UI
