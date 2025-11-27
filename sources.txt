@@ -1,0 +1,4 @@
+C:\Users\wakuw\OneDrive\画像\デスクトップ\.vscode\amebaeath\src\IoT.java
+C:\Users\wakuw\OneDrive\画像\デスクトップ\.vscode\amebaeath\src\Main.java
+C:\Users\wakuw\OneDrive\画像\デスクトップ\.vscode\amebaeath\src\Renderer.java
+C:\Users\wakuw\OneDrive\画像\デスクトップ\.vscode\amebaeath\src\Simulation.java
