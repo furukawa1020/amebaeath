@@ -73,6 +73,50 @@ public class Renderer {
         g.fillRect(0, 0, width, height);
         g.drawImage(buffer, 0, 0, null);
 
+        // Draw Character Details (Eyes & Nucleus)
+        for (Amoeba a : sim.amoebas) {
+            // Nucleus
+            g.setColor(new Color(0, 0, 0, 50));
+            g.fillOval((int) a.center.x - 6, (int) a.center.y - 6, 12, 12);
+
+            // Calculate direction for eyes
+            Vector2 vel = new Vector2(0, 0);
+            for (Node n : a.nodes)
+                vel = vel.add(n.vel);
+
+            // Default look direction if not moving much
+            float dx = 1, dy = 0;
+            if (vel.mag() > 0.1f) {
+                Vector2 dir = vel.normalize();
+                dx = dir.x;
+                dy = dir.y;
+            } else {
+                dx = (float) Math.cos(a.wanderAngle);
+                dy = (float) Math.sin(a.wanderAngle);
+            }
+
+            // Eye positions
+            float eyeOffset = a.targetRadius * 0.3f;
+            float eyeSpacing = 8.0f;
+            float ex = a.center.x + dx * eyeOffset;
+            float ey = a.center.y + dy * eyeOffset;
+
+            // Perpendicular vector for spacing
+            float px = -dy * eyeSpacing;
+            float py = dx * eyeSpacing;
+
+            // Draw Eyes (White)
+            g.setColor(Color.WHITE);
+            g.fillOval((int) (ex + px) - 5, (int) (ey + py) - 5, 10, 10);
+            g.fillOval((int) (ex - px) - 5, (int) (ey - py) - 5, 10, 10);
+
+            // Draw Pupils (Black) - looking slightly forward
+            g.setColor(Color.BLACK);
+            float pupilOffset = 2.0f;
+            g.fillOval((int) (ex + px + dx * pupilOffset) - 2, (int) (ey + py + dy * pupilOffset) - 2, 4, 4);
+            g.fillOval((int) (ex - px + dx * pupilOffset) - 2, (int) (ey - py + dy * pupilOffset) - 2, 4, 4);
+        }
+
         // Draw Food
         g.setColor(Color.GREEN);
         for (Food f : sim.foods) {

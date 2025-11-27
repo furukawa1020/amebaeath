@@ -74,7 +74,7 @@ class Spring {
 class Genes {
     float maxSpeed;
     float senseRadius;
-    float metabolism; // Affects growth rate and energy cost
+    float metabolism;
     Color color;
 
     Genes() {
@@ -82,12 +82,11 @@ class Genes {
         maxSpeed = 60.0f + r.nextFloat() * 40.0f;
         senseRadius = 100.0f + r.nextFloat() * 100.0f;
         metabolism = 0.8f + r.nextFloat() * 0.4f;
-        color = new Color(r.nextInt(100), 150 + r.nextInt(105), 200 + r.nextInt(55)); // Cyan-ish base
+        color = new Color(r.nextInt(100), 150 + r.nextInt(105), 200 + r.nextInt(55));
     }
 
     Genes(Genes parent) {
         Random r = new Random();
-        // Mutation
         maxSpeed = parent.maxSpeed + (r.nextFloat() - 0.5f) * 10.0f;
         senseRadius = parent.senseRadius + (r.nextFloat() - 0.5f) * 20.0f;
         metabolism = parent.metabolism + (r.nextFloat() - 0.5f) * 0.1f;
@@ -109,12 +108,14 @@ class Amoeba {
     Vector2 center;
     float targetRadius;
     Genes genes;
-    float energy = 50.0f; // Energy for reproduction
+    float energy = 50.0f;
+    float wanderAngle;
 
     Amoeba(float x, float y, float radius, int numNodes, Genes genes) {
         this.targetRadius = radius;
         this.genes = (genes == null) ? new Genes() : genes;
         center = new Vector2(x, y);
+        this.wanderAngle = (float) (Math.random() * Math.PI * 2);
 
         for (int i = 0; i < numNodes; i++) {
             float angle = (float) (i * 2 * Math.PI / numNodes);
@@ -144,7 +145,6 @@ class Amoeba {
     }
 
     void update(float dt, int width, int height) {
-        // Physics (Springs & Pressure) - Same as before but tuned
         for (Spring s : springs) {
             Vector2 dir = s.b.pos.sub(s.a.pos);
             float dist = dir.mag();
@@ -210,20 +210,97 @@ class Amoeba {
     }
 
     Amoeba divide() {
-        // Simple division: Create two new amoebas near the parent
-        // Offspring mutates
         Genes childGenes = new Genes(this.genes);
-        float newRadius = this.targetRadius * 0.7f; // Conserve mass roughly
+        float newRadius = this.targetRadius * 0.7f;
         return new Amoeba(center.x + 10, center.y + 10, newRadius, nodes.size(), childGenes);
     }
 }
 
 class Food {
     Vector2 pos;
-    float value = 10.0f;
+    float value = 30.0f;
 
     Food(float x, float y) {
         pos = new Vector2(x, y);
+    }
+}
+
+class SpatialGrid {
+    int cellSize;
+    int cols, rows;
+    List<Amoeba>[][] amoebaCells;
+    List<Food>[][] foodCells;
+
+    @SuppressWarnings("unchecked")
+    SpatialGrid(int width, int height, int cellSize) {
+        this.cellSize = cellSize;
+        this.cols = width / cellSize + 1;
+        this.rows = height / cellSize + 1;
+        amoebaCells = new ArrayList[cols][rows];
+        foodCells = new ArrayList[cols][rows];
+        for (int x = 0; x < cols; x++) {
+            for (int y = 0; y < rows; y++) {
+                amoebaCells[x][y] = new ArrayList<>();
+                foodCells[x][y] = new ArrayList<>();
+            }
+        }
+    }
+
+    void clear() {
+        for (int x = 0; x < cols; x++) {
+            for (int y = 0; y < rows; y++) {
+                amoebaCells[x][y].clear();
+                foodCells[x][y].clear();
+            }
+        }
+    }
+
+    void addAmoeba(Amoeba a) {
+        int x = (int) (a.center.x / cellSize);
+        int y = (int) (a.center.y / cellSize);
+        if (x >= 0 && x < cols && y >= 0 && y < rows) {
+            amoebaCells[x][y].add(a);
+        }
+    }
+
+    void addFood(Food f) {
+        int x = (int) (f.pos.x / cellSize);
+        int y = (int) (f.pos.y / cellSize);
+        if (x >= 0 && x < cols && y >= 0 && y < rows) {
+            foodCells[x][y].add(f);
+        }
+    }
+
+    List<Amoeba> getPotentialAmoebaNeighbors(Vector2 pos) {
+        List<Amoeba> result = new ArrayList<>();
+        int cx = (int) (pos.x / cellSize);
+        int cy = (int) (pos.y / cellSize);
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                int x = cx + i;
+                int y = cy + j;
+                if (x >= 0 && x < cols && y >= 0 && y < rows) {
+                    result.addAll(amoebaCells[x][y]);
+                }
+            }
+        }
+        return result;
+    }
+
+    List<Food> getPotentialFoodNeighbors(Vector2 pos) {
+        List<Food> result = new ArrayList<>();
+        int cx = (int) (pos.x / cellSize);
+        int cy = (int) (pos.y / cellSize);
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                int x = cx + i;
+                int y = cy + j;
+                if (x >= 0 && x < cols && y >= 0 && y < rows) {
+                    result.addAll(foodCells[x][y]);
+                }
+            }
+        }
+        return result;
     }
 }
 
@@ -233,27 +310,39 @@ public class Simulation {
     float temperature = 20.0f;
     int width, height;
     Random rand = new Random();
+    SpatialGrid grid;
 
     public Simulation(int width, int height) {
         this.width = width;
         this.height = height;
-        // Spawn initial population
-        for (int i = 0; i < 5; i++) {
-            amoebas.add(new Amoeba(rand.nextFloat() * width, rand.nextFloat() * height, 30, 12, null));
+        this.grid = new SpatialGrid(width, height, 200); // 200px cell size
+
+        for (int i = 0; i < 8; i++) {
+            float r = 20 + rand.nextFloat() * 20;
+            amoebas.add(new Amoeba(rand.nextFloat() * width, rand.nextFloat() * height, r, 12, null));
         }
     }
 
     public void update(float dt) {
+        // Populate Grid
+        grid.clear();
+        for (Amoeba a : amoebas)
+            grid.addAmoeba(a);
+        for (Food f : foods)
+            grid.addFood(f);
+
         List<Amoeba> newAmoebas = new ArrayList<>();
         List<Amoeba> deadAmoebas = new ArrayList<>();
 
         for (Amoeba a : amoebas) {
             Vector2 force = new Vector2(0, 0);
 
-            // 1. Foraging (Seek Food)
+            // 1. Foraging (Optimized)
             Food nearest = null;
             float minDist = a.genes.senseRadius;
-            for (Food f : foods) {
+            List<Food> nearbyFood = grid.getPotentialFoodNeighbors(a.center);
+
+            for (Food f : nearbyFood) {
                 float d = a.center.dist(f.pos);
                 if (d < minDist) {
                     minDist = d;
@@ -264,52 +353,79 @@ public class Simulation {
                 Vector2 dir = nearest.pos.sub(a.center).normalize();
                 force = force.add(dir.mult(a.genes.maxSpeed));
             } else {
-                // Wander
-                force = force.add(
-                        new Vector2(rand.nextFloat() - 0.5f, rand.nextFloat() - 0.5f).mult(a.genes.maxSpeed * 0.5f));
+                a.wanderAngle += (rand.nextFloat() - 0.5f) * 1.0f;
+                Vector2 wanderDir = new Vector2((float) Math.cos(a.wanderAngle), (float) Math.sin(a.wanderAngle));
+                force = force.add(wanderDir.mult(a.genes.maxSpeed * 0.8f));
             }
 
-            // 2. Flocking / Swarming (Separation only for now to prevent clumps)
-            for (Amoeba other : amoebas) {
+            // 2. Flocking (Optimized)
+            Vector2 separation = new Vector2(0, 0);
+            Vector2 cohesion = new Vector2(0, 0);
+            Vector2 alignment = new Vector2(0, 0);
+            int neighborCount = 0;
+
+            List<Amoeba> neighbors = grid.getPotentialAmoebaNeighbors(a.center);
+
+            for (Amoeba other : neighbors) {
                 if (other == a)
                     continue;
                 float d = a.center.dist(other.center);
+
                 if (d < a.targetRadius + other.targetRadius) {
                     Vector2 push = a.center.sub(other.center).normalize();
-                    force = force.add(push.mult(100.0f)); // Separation force
+                    separation = separation.add(push.mult(150.0f));
+                }
+
+                if (d < a.genes.senseRadius * 1.5f) {
+                    cohesion = cohesion.add(other.center);
+                    Vector2 otherVel = new Vector2(0, 0);
+                    for (Node n : other.nodes)
+                        otherVel = otherVel.add(n.vel);
+                    otherVel = otherVel.mult(1.0f / other.nodes.size());
+                    alignment = alignment.add(otherVel);
+                    neighborCount++;
                 }
             }
 
-            // Apply force to nodes
+            if (neighborCount > 0) {
+                cohesion = cohesion.mult(1.0f / neighborCount);
+                cohesion = cohesion.sub(a.center).normalize().mult(a.genes.maxSpeed * 0.2f);
+                alignment = alignment.mult(1.0f / neighborCount).normalize().mult(a.genes.maxSpeed * 0.2f);
+            }
+
+            force = force.add(separation);
+            force = force.add(cohesion);
+            force = force.add(alignment);
+
             for (Node n : a.nodes) {
                 n.vel = n.vel.add(force.mult(dt));
             }
 
             a.update(dt, width, height);
 
-            // Metabolism cost
             a.energy -= dt * a.genes.metabolism;
             if (a.energy <= 0) {
-                // Starvation (shrink)
                 a.targetRadius -= 5.0f * dt;
                 if (a.targetRadius < 10.0f)
                     deadAmoebas.add(a);
             }
         }
 
-        // Interactions
-        // Eating Food
+        // Interactions (Optimized)
         List<Food> eatenFood = new ArrayList<>();
-        for (Food f : foods) {
-            for (Amoeba a : amoebas) {
+        // We iterate over amoebas and check nearby food
+        for (Amoeba a : amoebas) {
+            List<Food> nearbyFood = grid.getPotentialFoodNeighbors(a.center);
+            for (Food f : nearbyFood) {
+                if (eatenFood.contains(f))
+                    continue;
                 if (a.center.dist(f.pos) < a.targetRadius) {
                     eatenFood.add(f);
                     a.energy += f.value * 2.0f;
                     a.targetRadius += 1.0f;
-                    // Update springs for new size
                     for (Spring s : a.springs)
                         s.restLength *= 1.01f;
-                    break;
+                    break; // One food per frame per amoeba max
                 }
             }
         }
@@ -317,28 +433,28 @@ public class Simulation {
 
         // Reproduction
         for (Amoeba a : amoebas) {
-            if (a.targetRadius > 50.0f && a.energy > 100.0f) {
+            if (a.targetRadius > 40.0f && a.energy > 80.0f) {
                 newAmoebas.add(a.divide());
-                a.targetRadius *= 0.7f; // Shrink parent
-                a.energy *= 0.5f; // Split energy
+                a.targetRadius *= 0.7f;
+                a.energy *= 0.5f;
                 for (Spring s : a.springs)
                     s.restLength *= 0.7f;
             }
         }
 
-        // Predation (Big eats small)
+        // Predation (Optimized)
         for (Amoeba predator : amoebas) {
-            for (Amoeba prey : amoebas) {
+            List<Amoeba> neighbors = grid.getPotentialAmoebaNeighbors(predator.center);
+            for (Amoeba prey : neighbors) {
                 if (predator == prey)
                     continue;
                 if (deadAmoebas.contains(prey))
                     continue;
 
-                if (predator.targetRadius > prey.targetRadius * 1.5f &&
+                if (predator.targetRadius > prey.targetRadius * 1.2f &&
                         predator.center.dist(prey.center) < predator.targetRadius) {
-                    // Eat prey
                     predator.energy += prey.energy * 0.8f;
-                    predator.targetRadius += prey.targetRadius * 0.2f;
+                    predator.targetRadius += prey.targetRadius * 0.3f;
                     deadAmoebas.add(prey);
                 }
             }
@@ -347,9 +463,10 @@ public class Simulation {
         amoebas.removeAll(deadAmoebas);
         amoebas.addAll(newAmoebas);
 
-        // Spawn food
         float spawnChance = 0.05f * Math.max(0.1f, temperature / 20.0f);
-        if (rand.nextFloat() < spawnChance) {
+        // Scale spawn chance by dt to keep rate consistent if dt varies,
+        // but here dt is physics step. With timeScale, we want MORE food.
+        if (rand.nextFloat() < spawnChance * (1.0f + dt)) {
             foods.add(new Food(rand.nextFloat() * width, rand.nextFloat() * height));
         }
     }

@@ -35,7 +35,12 @@ public class Main extends JPanel {
                 dt = 0.05f;
 
             sim.temperature = iot.getTemperature();
-            sim.update(dt);
+            // Sub-stepping for stability
+            int steps = 5; // Run 5x faster
+            float subDt = dt; // Keep dt small per step
+            for (int i = 0; i < steps; i++) {
+                sim.update(subDt);
+            }
             repaint();
 
             try {
