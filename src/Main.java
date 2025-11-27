@@ -20,7 +20,9 @@ public class Main extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        renderer.draw(g, sim);
+        synchronized (sim) {
+            renderer.draw(g, sim);
+        }
     }
 
     public void run() {
@@ -39,7 +41,9 @@ public class Main extends JPanel {
             int steps = 5; // Run 5x faster
             float subDt = dt; // Keep dt small per step
             for (int i = 0; i < steps; i++) {
-                sim.update(subDt);
+                synchronized (sim) {
+                    sim.update(subDt);
+                }
             }
             repaint();
 
