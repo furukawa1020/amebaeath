@@ -1,9 +1,0 @@
-[build]
-  publish = "frontend/out"
-  # Run the build inside the frontend subfolder where package.json exists
-  command = "cd frontend && npm ci && npm run build && npm run export"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
