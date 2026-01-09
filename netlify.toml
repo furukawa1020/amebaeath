@@ -1,0 +1,38 @@
+[build]
+  # No build command needed for static site
+  publish = "."
+  
+[build.environment]
+  # No special environment variables needed
+
+[[redirects]]
+  # Redirect all 404s to the main page
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+
+[[headers]]
+  # Set headers for all pages
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer-when-downgrade"
+
+[[headers]]
+  # Cache JAR file for desktop version downloads
+  for = "*.jar"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/java-archive"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  # CORS headers for CheerpJ
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "*"

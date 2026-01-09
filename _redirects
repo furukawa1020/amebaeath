@@ -1,0 +1,3 @@
+# Netlify redirects file
+# Redirect all paths to index.html with 200 status (SPA mode)
+/*    /index.html   200
