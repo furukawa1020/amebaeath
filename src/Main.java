@@ -64,6 +64,11 @@ public class Main extends JPanel {
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
 
+        // Add shutdown hook to clean up resources
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            game.iot.shutdown();
+        }));
+
         game.run();
     }
 }
