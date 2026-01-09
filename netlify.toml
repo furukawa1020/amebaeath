@@ -16,13 +16,23 @@
   # Set headers for all pages
   for = "/*"
   [headers.values]
-    X-Frame-Options = "DENY"
+    X-Frame-Options = "SAMEORIGIN"
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer-when-downgrade"
 
 [[headers]]
-  # Cache static assets
+  # Cache JAR file - needed for CheerpJ
   for = "*.jar"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/java-archive"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  # CORS headers for CheerpJ
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "*"

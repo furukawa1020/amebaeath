@@ -13,283 +13,164 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             padding: 20px;
-        }
-        
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
-        
-        header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 40px 30px;
+        }
+        
+        .header {
             text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
         
-        header h1 {
-            font-size: 2.2em;
+        .header h1 {
+            font-size: 2.5em;
             margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
         }
         
-        header p {
+        .header p {
             font-size: 1.1em;
             opacity: 0.95;
         }
         
-        main {
-            padding: 40px 30px;
+        #canvas-container {
+            background: white;
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
         }
         
-        section {
-            margin-bottom: 35px;
-        }
-        
-        h2 {
-            color: #667eea;
-            font-size: 1.8em;
-            margin-bottom: 15px;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 8px;
-        }
-        
-        .features {
-            display: grid;
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .feature-item {
-            background: #f8f9fa;
-            padding: 15px;
+        canvas {
+            display: block;
+            background: #000;
             border-radius: 8px;
-            border-left: 4px solid #667eea;
         }
         
-        .feature-item strong {
-            color: #764ba2;
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 820px;
+            width: 100%;
+            margin-top: 10px;
         }
         
-        .download-section {
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .stat-box {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #f093fb;
+        }
+        
+        .stat-box strong {
+            color: #f093fb;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-top: 15px;
+        }
+        
+        button {
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
             color: white;
-            padding: 30px;
-            border-radius: 10px;
-            text-align: center;
-            margin: 30px 0;
-        }
-        
-        .download-section h2 {
-            color: white;
-            border-bottom: none;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 15px 40px;
-            margin: 10px;
-            background: white;
-            color: #f5576c;
-            text-decoration: none;
-            border-radius: 50px;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
             font-weight: bold;
-            font-size: 1.1em;
+            cursor: pointer;
+            margin: 0 5px;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
         
-        .btn:hover {
-            transform: translateY(-3px);
+        button:hover {
+            transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         }
         
-        .btn-secondary {
-            background: #667eea;
-            color: white;
+        button:active {
+            transform: translateY(0);
         }
         
-        .requirements {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        
-        .requirements h3 {
-            color: #856404;
-            margin-bottom: 10px;
-        }
-        
-        .requirements ul {
-            margin-left: 20px;
-        }
-        
-        .requirements li {
-            margin: 8px 0;
-        }
-        
-        footer {
-            background: #2c3e50;
-            color: white;
+        .footer {
+            margin-top: 20px;
             text-align: center;
-            padding: 20px;
+            opacity: 0.9;
             font-size: 0.9em;
         }
         
-        footer a {
-            color: #667eea;
-            text-decoration: none;
-        }
-        
-        footer a:hover {
+        .footer a {
+            color: #fff;
             text-decoration: underline;
-        }
-        
-        code {
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .emoji {
-            font-size: 1.3em;
-            margin-right: 8px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🦠 Ameba Earth</h1>
-            <p>東京の気温に翻弄される小さな命達</p>
-            <p style="font-size: 0.95em; margin-top: 10px;">A Squishy Artificial Life Simulation</p>
-        </header>
-        
-        <main>
-            <section>
-                <h2>📖 概要 / About</h2>
-                <p>
-                    Javaで作られた、ぷにぷに動く人工生命シミュレーション。
-                    最大の特徴は「現実世界とのリンク」。リアルタイムの東京の気温を取得し、アメーバたちの生態系や食料事情が変化します。
-                    物理演算で描かれる、美しくも過酷な「小さな地球」を観察してみませんか？
-                </p>
-                <p style="margin-top: 10px;">
-                    A Java-based artificial life simulation featuring squishy amoebas that move with soft-body physics.
-                    The unique feature is "Real-World Integration" - fetching real-time Tokyo temperature data to affect
-                    the amoebas' ecosystem and food availability. Observe this beautiful yet harsh "tiny Earth" rendered
-                    with physics simulations!
-                </p>
-            </section>
-            
-            <div class="download-section">
-                <h2><span class="emoji">📦</span>ダウンロード / Download</h2>
-                <p style="margin-bottom: 20px;">コンパイル不要！すぐに遊べます / No compilation needed! Ready to run!</p>
-                <a href="https://github.com/furukawa1020/amebaeath/releases" class="btn">
-                    Download AmebaEarth.jar
-                </a>
-                <a href="https://github.com/furukawa1020/amebaeath" class="btn btn-secondary">
-                    View on GitHub
-                </a>
-            </div>
-            
-            <section>
-                <h2>✨ Features</h2>
-                <div class="features">
-                    <div class="feature-item">
-                        <strong>Soft-Body Physics</strong><br>
-                        Amoebas are modeled as spring-mass systems with internal pressure, giving them a squishy, organic feel.
-                    </div>
-                    <div class="feature-item">
-                        <strong>Metaball Rendering</strong><br>
-                        Uses radial gradients and thresholding to render smooth, merging blobs.
-                    </div>
-                    <div class="feature-item">
-                        <strong>Evolutionary Genetics</strong><br>
-                        Each amoeba has genes for speed, sense radius, metabolism, and color. Offspring inherit and mutate these traits.
-                    </div>
-                    <div class="feature-item">
-                        <strong>Complex Behaviors</strong><br>
-                        Foraging, predation ("Weak Eat Strong"), flocking with cohesion and alignment, asexual reproduction.
-                    </div>
-                    <div class="feature-item">
-                        <strong>IoT Integration</strong><br>
-                        Real-time temperature data (via Open-Meteo API) influences the environment (e.g., food spawning rates).
-                    </div>
-                    <div class="feature-item">
-                        <strong>Character Polish</strong><br>
-                        Amoebas feature expressive eyes that track their movement and a visible nucleus.
-                    </div>
-                    <div class="feature-item">
-                        <strong>High Performance</strong><br>
-                        Optimized with a Spatial Grid and Physics Sub-stepping to support fast-paced simulation (5x time scale).
-                    </div>
-                </div>
-            </section>
-            
-            <section>
-                <div class="requirements">
-                    <h3>⚙️ 必要環境 / Requirements</h3>
-                    <ul>
-                        <li><strong>Java Development Kit (JDK)</strong>: Version 11 or higher</li>
-                        <li><strong>OS</strong>: Windows, macOS, or Linux</li>
-                    </ul>
-                </div>
-            </section>
-            
-            <section>
-                <h2>🚀 実行方法 / How to Run</h2>
-                <h3 style="color: #764ba2; margin-top: 15px; margin-bottom: 10px;">方法1: JARファイルを実行</h3>
-                <ol style="margin-left: 20px;">
-                    <li><a href="https://github.com/furukawa1020/amebaeath/releases">Releases</a>ページから <strong>AmebaEarth.jar</strong> をダウンロード</li>
-                    <li>ダブルクリックで実行（Javaがインストールされている必要があります）</li>
-                </ol>
-                
-                <h3 style="color: #764ba2; margin-top: 20px; margin-bottom: 10px;">方法2: ソースコードからコンパイル (Windows)</h3>
-                <ol style="margin-left: 20px;">
-                    <li>プロジェクトディレクトリに移動</li>
-                    <li><code>compile_and_run.bat</code> をダブルクリック、またはコマンドラインから実行</li>
-                </ol>
-            </section>
-            
-            <section>
-                <h2>🎮 遊び方 / Controls</h2>
-                <p>シミュレーションは自動的に実行されます。アメーバたちが進化し、群れ、競争する様子をご覧ください！</p>
-                <p style="margin-top: 8px;">
-                    <em>The simulation runs automatically. Watch the amoebas evolve, swarm, and compete!</em>
-                </p>
-            </section>
-            
-            <section>
-                <h2>📁 Project Structure</h2>
-                <ul style="margin-left: 20px;">
-                    <li><code>src/Main.java</code>: Entry point, game loop, and rendering setup</li>
-                    <li><code>src/Simulation.java</code>: Core logic for physics, entity management, and spatial grid</li>
-                    <li><code>src/Renderer.java</code>: Handles metaball rendering and character drawing</li>
-                    <li><code>src/IoT.java</code>: Fetches real-time weather data</li>
-                </ul>
-            </section>
-        </main>
-        
-        <footer>
-            <p>
-                Made with ❤️ by <a href="https://github.com/furukawa1020">furukawa1020</a>
-            </p>
-            <p style="margin-top: 8px;">
-                <a href="https://github.com/furukawa1020/amebaeath">View Source on GitHub</a>
-            </p>
-        </footer>
+    <div class="header">
+        <h1>🦠 Ameba Earth</h1>
+        <p>東京の気温に翻弄される小さな命達</p>
+        <p style="font-size: 0.95em; margin-top: 5px;">A Squishy Artificial Life Simulation - Now Running in Your Browser!</p>
     </div>
+    
+    <div id="canvas-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+    
+    <div class="info-panel">
+        <div class="stats">
+            <div class="stat-box">
+                <strong>アメーバ数 / Amoebas</strong>
+                <span id="amoeba-count">0</span>
+            </div>
+            <div class="stat-box">
+                <strong>食料 / Food</strong>
+                <span id="food-count">0</span>
+            </div>
+            <div class="stat-box">
+                <strong>東京気温 / Tokyo Temp</strong>
+                <span id="temperature">--°C</span>
+            </div>
+            <div class="stat-box">
+                <strong>世代 / Generation</strong>
+                <span id="generation">1</span>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="simulation.reset()">リセット / Reset</button>
+            <button onclick="simulation.togglePause()">一時停止 / Pause</button>
+            <button onclick="simulation.spawnFood()">食料追加 / Add Food</button>
+        </div>
+        
+        <p style="text-align: center; margin-top: 15px; font-size: 0.9em;">
+            💡 アメーバたちが自動的に進化し、群れ、競争します / Amoebas automatically evolve, swarm, and compete
+        </p>
+    </div>
+    
+    <div class="footer">
+        <p>Made with ❤️ by <a href="https://github.com/furukawa1020">furukawa1020</a></p>
+        <p style="margin-top: 5px;">🌐 JavaアプリをWeb版に移植 / Ported from Java to JavaScript</p>
+        <p style="margin-top: 5px;"><a href="https://github.com/furukawa1020/amebaeath">View Source on GitHub</a></p>
+    </div>
+    
+    <script src="simulation.js"></script>
 </body>
 </html>
