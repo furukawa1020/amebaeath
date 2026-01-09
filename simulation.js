@@ -237,7 +237,12 @@ class Simulation {
         }
         
         // Update every 10 minutes
-        setTimeout(() => this.fetchTemperature(), 600000);
+        if (!this._temperatureTimeout) {
+            this._temperatureTimeout = setTimeout(() => {
+                this._temperatureTimeout = null;
+                this.fetchTemperature();
+            }, 600000);
+        }
     }
     
     update(dt) {
@@ -368,5 +373,12 @@ class Simulation {
     }
 }
 
-// Initialize simulation
-const simulation = new Simulation();
+// Initialize simulation when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.simulation = new Simulation();
+    });
+} else {
+    window.simulation = new Simulation();
+}
+
