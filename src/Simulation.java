@@ -87,9 +87,9 @@ class Genes {
 
     Genes(Genes parent) {
         Random r = new Random();
-        maxSpeed = parent.maxSpeed + (r.nextFloat() - 0.5f) * 10.0f;
-        senseRadius = parent.senseRadius + (r.nextFloat() - 0.5f) * 20.0f;
-        metabolism = parent.metabolism + (r.nextFloat() - 0.5f) * 0.1f;
+        maxSpeed = clampFloat(parent.maxSpeed + (r.nextFloat() - 0.5f) * 10.0f, 20.0f, 150.0f);
+        senseRadius = clampFloat(parent.senseRadius + (r.nextFloat() - 0.5f) * 20.0f, 50.0f, 300.0f);
+        metabolism = clampFloat(parent.metabolism + (r.nextFloat() - 0.5f) * 0.1f, 0.3f, 2.0f);
 
         int red = clamp(parent.color.getRed() + r.nextInt(40) - 20);
         int green = clamp(parent.color.getGreen() + r.nextInt(40) - 20);
@@ -99,6 +99,10 @@ class Genes {
 
     private int clamp(int val) {
         return Math.max(0, Math.min(255, val));
+    }
+
+    private float clampFloat(float val, float min, float max) {
+        return Math.max(min, Math.min(max, val));
     }
 }
 
