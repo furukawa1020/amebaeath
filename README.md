@@ -50,3 +50,11 @@ If you don't want to compile the code yourself, you can simply download the late
 -   `src/Simulation.java`: Core logic for physics, entity management, and spatial grid.
 -   `src/Renderer.java`: Handles the metaball rendering and character drawing.
 -   `src/IoT.java`: Fetches real-time weather data.
+-   `index.html`: Project landing page (for web deployment).
+-   `netlify.toml`: Netlify deployment configuration.
+
+## 🌐 Web Deployment
+
+This repository includes a landing page (`index.html`) that can be deployed to static hosting services like Netlify, GitHub Pages, or Vercel. The landing page provides project information and download links for the Java application.
+
+The `netlify.toml` configuration file ensures proper deployment and handles routing.
